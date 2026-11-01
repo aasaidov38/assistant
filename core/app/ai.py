@@ -152,8 +152,21 @@ async def complete_json(system: str, text: str, image_b64: str | None = None,
         return parse_json(raw)
 
 
-async def transcribe(audio: bytes, filename: str = "voice.ogg", mime: str = "audio/ogg") -> str:
+AUDIO_EXT = {"audio/ogg": "ogg", "audio/opus": "ogg", "audio/webm": "webm", "video/webm": "webm", "audio/mp4": "m4a",
+             "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/aac": "m4a", "audio/mpeg": "mp3", "audio/mp3": "mp3",
+             "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac"}
+
+
+def audio_name(mime: str | None) -> tuple[str, str]:
+    """Имя файла и тип для распознавания: сервис определяет формат по расширению."""
+    m = (mime or "audio/ogg").lower().split(";")[0].strip()
+    return "voice." + AUDIO_EXT.get(m, "ogg"), m
+
+
+async def transcribe(audio: bytes, filename: str | None = None, mime: str = "audio/ogg") -> str:
     """Голос в текст через OpenAI-совместимый API (Groq, OpenAI и др.)."""
+    if not filename:
+        filename, mime = audio_name(mime)
     s = get_settings()
     if not s.stt_api_key:
         raise AIError("Не задан STT_API_KEY в .env: голосовые сообщения пока недоступны")

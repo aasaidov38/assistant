@@ -4,7 +4,7 @@ import asyncio, json, os, subprocess, tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import asyncpg
-from app import brain, db, notify, release, scope, users, web_life
+from app import ai, brain, db, notify, release, scope, users, web_life
 from app.schemas import Action
 
 from _env import PSQL
@@ -157,6 +157,13 @@ async def main():
     await scope.enter(maria); s = (await web_life.settings_get(user=maria))["system"]
     check(not s["can_update"] and s["updating"], "Мария: без кнопки, видит «идёт обновление»", s)
     scope.leave()
+
+    print("8. Голос из браузера")
+    check(ai.audio_name("audio/webm;codecs=opus") == ("voice.webm", "audio/webm"), "webm из Chrome", ai.audio_name("audio/webm;codecs=opus"))
+    check(ai.audio_name("audio/mp4")[0] == "voice.m4a" and ai.audio_name(None)[0] == "voice.ogg" and ai.audio_name("x/y")[0] == "voice.ogg",
+          "Safari mp4 → m4a, по умолчанию ogg")
+    html = (root / "core/app/static/chat.html").read_text()
+    check("MediaRecorder" in html and "pointerdown" in html and "setPointerCapture" in html, "чат: удержание и запись в браузере")
 
     print("ИТОГ:", "всё прошло" if not FAILS else FAILS)
 

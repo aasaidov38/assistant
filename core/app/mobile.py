@@ -91,7 +91,7 @@ async def chat_send(body: SendIn, request: Request, user: users.User = Depends(w
             raise HTTPException(400, "Файл повреждён")
         if len(raw) > MAX_FILE_BYTES:
             raise HTTPException(413, "Файл больше 15 МБ")
-        mime = (body.mime or "").lower() or "application/octet-stream"
+        mime = (body.mime or "").lower().split(";")[0].strip() or "application/octet-stream"
         if body.voice or mime.startswith("audio/"):
             kind = "voice"
         elif mime.startswith("image/"):

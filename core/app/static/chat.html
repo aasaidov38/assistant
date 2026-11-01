@@ -80,8 +80,11 @@ textarea{flex:1;border:0;outline:0;background:none;color:var(--fg);font:inherit;
 .rec{display:none;flex:1;align-items:center;gap:10px;padding:0 10px;height:46px;background:var(--card);border:1px solid var(--line);border-radius:22px}
 .rec.on{display:flex}
 .rec .dot{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
-.rec .t{flex:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rec .t{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rec button{border:0;background:none;color:var(--muted);font:inherit;cursor:pointer;padding:6px}
+.rec .hint{flex:1;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec.cancel .hint{color:var(--danger)}.rec.locked .hint{display:none}.rec:not(.locked) #reccancel{display:none}
+.send{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .send.stop{background:var(--danger);box-shadow:0 4px 14px rgba(229,72,77,.35)}
 .empty{margin:auto;text-align:center;color:var(--muted);max-width:320px;padding:20px}
 .empty .big{font-size:42px;margin-bottom:6px}
@@ -122,7 +125,7 @@ main,.chips,footer{width:100%;max-width:780px;margin-left:auto;margin-right:auto
     <button class="ib" id="attach" title="Фото или файл">📎</button>
     <textarea id="text" rows="1" placeholder="Сообщение…"></textarea>
   </div>
-  <div class="rec" id="rec"><span class="dot"></span><span class="t" id="rect">0:00</span><button id="reccancel">Отмена</button></div>
+  <div class="rec" id="rec"><span class="dot"></span><span class="t" id="rect">0:00</span><span class="hint">‹ влево — отмена · ↑ закрепить</span><button id="reccancel">Отмена</button></div>
   <button class="send" id="send" aria-label="Отправить">➤</button>
   <input type="file" id="file" accept="image/*,application/pdf,.pdf,.csv,text/csv" hidden>
 </footer>
@@ -277,7 +280,7 @@ function submit() {
          {from: 'me', text: t, att: {kind: p.kind, name: p.name}, img: p.kind === 'photo' ? `data:${p.mime};base64,${p.b64}` : undefined});
     return;
   }
-  if (!t) { if (APP) startVoice(); else text.focus(); return; }
+  if (!t) { text.focus(); return; }
   text.value = ''; grow();
   send({text: t}, {from: 'me', text: t});
 }
@@ -321,45 +324,125 @@ window.onShared = function () {
   updateSend();
 };
 
-// ---------- голос (только в приложении) ----------
-function startVoice() { if (!APP || busy) return; Android.voiceStart(); }
+// ---------- голос: удерживайте 🎙, как в Telegram ----------
+// В приложении пишет Android (ogg), в браузере — MediaRecorder (webm / ogg / mp4 у Safari).
+const WEBREC = !APP && !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const VOICE = APP || WEBREC;
+let hold = null, locked = false, skipClick = false, mr = null, chunks = [], stream = null;
+const holdHint = () => add({from: 'sys', text: '🎙 Удерживайте кнопку, пока говорите, и отпустите — сообщение уйдёт. Сдвиг влево — отмена, вверх — запись без рук.'});
+const MIN_MS = 500, CANCEL_DX = 90, LOCK_DY = 70;
+function recMime() {
+  for (const t of ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'])
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+  return '';
+}
+const extOf = m => /ogg/.test(m) ? 'ogg' : /mp4|aac|m4a/.test(m) ? 'm4a' : /mpeg|mp3/.test(m) ? 'mp3' : /wav/.test(m) ? 'wav' : 'webm';
+async function startVoice() {
+  if (!VOICE || busy || recording) return;
+  if (APP) { Android.voiceStart(); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
+  } catch (e) {
+    hold = null;
+    add({from: 'sys', text: '🎙 Браузер не дал доступ к микрофону. Разрешите его в настройках сайта (значок замка у адреса) и попробуйте снова.'});
+    return;
+  }
+  if (!hold && !locked) { stream.getTracks().forEach(t => t.stop()); stream = null;   // отпустили, пока браузер спрашивал
+    holdHint(); return; }
+  const mime = recMime(); chunks = [];
+  try { mr = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined); }
+  catch (e) { stream.getTracks().forEach(t => t.stop()); add({from: 'sys', text: '🎙 Этот браузер не умеет записывать звук.'}); return; }
+  mr.ondataavailable = e => e.data && e.data.size && chunks.push(e.data);
+  mr.onstop = () => {
+    stream && stream.getTracks().forEach(t => t.stop()); stream = null;
+    const keep = mr._send, type = (mr.mimeType || mime || 'audio/webm').split(';')[0]; mr = null;
+    if (!keep || !chunks.length) return;
+    const blob = new Blob(chunks, {type});
+    if (blob.size > MAX) { add({from: 'sys', text: '⚠️ Слишком длинное голосовое.'}); return; }
+    const rd = new FileReader();
+    rd.onload = () => { const s = String(rd.result); window.onVoice(s.slice(s.indexOf(',') + 1), type); };
+    rd.readAsDataURL(blob);
+  };
+  mr.start(250);
+  window.onVoiceStarted();
+}
 window.onVoiceStarted = () => {
   recording = true; recStart = Date.now();
-  $('#inp').style.display = 'none'; $('#rec').classList.add('on');
-  sendBtn.classList.add('stop'); sendBtn.textContent = '■'; sendBtn.disabled = false;
+  $('#inp').style.display = 'none'; $('#rec').classList.add('on'); $('#rec').classList.toggle('locked', locked);
+  sendBtn.classList.add('stop'); sendBtn.textContent = locked ? '➤' : '🎙'; sendBtn.disabled = false;
+  if (!hold && !locked) { stopVoice(false); return; }     // отпустили раньше, чем запись началась
   recTimer = setInterval(() => {
     const s = Math.floor((Date.now() - recStart) / 1000);
-    $('#rect').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' · запись';
+    $('#rect').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     if (s >= 300) stopVoice(true);
   }, 250);
 };
 function stopVoice(sendIt) {
   if (!recording) return;
-  recording = false; clearInterval(recTimer);
-  $('#rec').classList.remove('on'); $('#inp').style.display = '';
-  sendBtn.classList.remove('stop'); updateSend();
-  Android.voiceStop(!!sendIt);
+  if (sendIt && Date.now() - recStart < MIN_MS) sendIt = false;
+  recording = false; locked = false; hold = null; clearInterval(recTimer);
+  $('#rec').classList.remove('on', 'locked', 'cancel'); $('#inp').style.display = ''; $('#rect').textContent = '0:00';
+  sendBtn.classList.remove('stop'); sendBtn.style.transform = ''; updateSend();
+  if (APP) Android.voiceStop(!!sendIt);
+  else if (mr) { mr._send = !!sendIt; try { mr.stop(); } catch (e) {} }
 }
+// жесты на кнопке: держать — запись, отпустить — отправить, влево — отмена, вверх — закрепить
+const micMode = () => VOICE && !text.value.trim() && !pending && !busy;
+sendBtn.addEventListener('pointerdown', e => {
+  if (recording || !micMode() || e.button > 0) return;
+  e.preventDefault(); skipClick = true;
+  try { sendBtn.setPointerCapture(e.pointerId); } catch (_) {}
+  hold = {x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId};
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {}
+  startVoice();
+});
+sendBtn.addEventListener('pointermove', e => {
+  if (!hold || e.pointerId !== hold.id || locked) return;
+  const dx = Math.min(0, e.clientX - hold.x), dy = Math.min(0, e.clientY - hold.y);
+  sendBtn.style.transform = `translate(${Math.max(dx, -CANCEL_DX)}px, ${Math.max(dy, -LOCK_DY)}px)`;
+  $('#rec').classList.toggle('cancel', dx < -CANCEL_DX * .6);
+  if (dx < -CANCEL_DX) { stopVoice(false); hold = null; return; }
+  if (dy < -LOCK_DY) { locked = true; hold = null; sendBtn.style.transform = '';
+    $('#rec').classList.add('locked'); sendBtn.textContent = '➤';
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {} }
+});
+function release(e, cancel) {
+  if (!hold || (e && e.pointerId !== hold.id)) return;
+  const short = Date.now() - hold.t < MIN_MS; hold = null; sendBtn.style.transform = '';
+  if (locked) return;
+  if (!recording) return;                                  // запись ещё не началась — onVoiceStarted сам отменит
+  if (cancel || short) { stopVoice(false);
+    if (short && !cancel) holdHint();
+    return; }
+  stopVoice(true);
+}
+sendBtn.addEventListener('pointerup', e => release(e, false));
+sendBtn.addEventListener('pointercancel', e => release(e, true));
+sendBtn.addEventListener('contextmenu', e => { if (hold || recording) e.preventDefault(); });
 $('#reccancel').onclick = () => stopVoice(false);
-window.onVoice = b64 => send({file_b64: b64, mime: 'audio/ogg', name: 'voice.ogg', voice: true},
-                             {from: 'me', text: '', att: {kind: 'voice', name: 'голосовое'}});
-window.onVoiceError = msg => add({from: 'sys', text: '🎙 ' + msg});
-window.onVoicePermission = ok => { if (ok) startVoice(); else add({from: 'sys', text: '🎙 Без доступа к микрофону голосовые не работают. Разрешить можно в настройках телефона: Приложения → Ассистент → Разрешения.'}); };
+window.onVoice = (b64, mime) => {
+  mime = mime || 'audio/ogg';
+  send({file_b64: b64, mime, name: 'voice.' + extOf(mime), voice: true}, {from: 'me', text: '', att: {kind: 'voice', name: 'голосовое'}});
+};
+window.onVoiceError = msg => { hold = null; locked = false; add({from: 'sys', text: '🎙 ' + msg}); };
+window.onVoicePermission = ok => add({from: 'sys', text: ok ? '🎙 Доступ к микрофону есть. Удерживайте кнопку и говорите.'
+  : '🎙 Без доступа к микрофону голосовые не работают. Разрешить можно в настройках телефона: Приложения → Ассистент → Разрешения.'});
 
 // ---------- поле ввода ----------
 function grow() { text.style.height = 'auto'; text.style.height = Math.min(text.scrollHeight, 140) + 'px'; updateSend(); }
 function updateSend() {
   if (recording) return;
   const empty = !text.value.trim() && !pending;
-  sendBtn.textContent = empty && APP ? '🎙' : '➤';
-  sendBtn.setAttribute('aria-label', empty && APP ? 'Голосовое' : 'Отправить');
-  sendBtn.disabled = busy || (empty && !APP);
+  sendBtn.textContent = empty && VOICE ? '🎙' : '➤';
+  sendBtn.setAttribute('aria-label', empty && VOICE ? 'Удерживайте, чтобы записать голосовое' : 'Отправить');
+  sendBtn.disabled = busy || (empty && !VOICE);
 }
 text.addEventListener('input', grow);
 text.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); submit(); }
 });
-sendBtn.onclick = submit;
+sendBtn.onclick = () => { if (skipClick) { skipClick = false; if (locked && recording) return; if (!recording) return; } submit(); };
+sendBtn.addEventListener('pointerdown', () => { if (!micMode()) skipClick = false; }, true);
 $('#chips').onclick = e => {
   const b = e.target.closest('button'); if (!b || busy) return;
   send({text: b.dataset.t}, {from: 'me', text: b.textContent});
@@ -381,7 +464,7 @@ list.addEventListener('click', e => {      // ссылки из ответов �
   if (APP) Android.openExternal(a.href); else window.open(a.href, '_blank', 'noopener');
 });
 
-if (!APP) $('#sub').textContent = 'голосовые — в приложении';
+if (!VOICE) $('#sub').textContent = 'голосовые — в приложении';
 load(); render(); updateSend();
 window.onShared();
 </script>
