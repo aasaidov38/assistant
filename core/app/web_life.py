@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from . import release
 from . import bank, bills, db, debts, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
 from .config import get_settings
 from .schemas import Reply
@@ -693,7 +694,14 @@ async def settings_get(user: users.User = Depends(current_user)):
         "sections": {k: {"title": v[0], "default": v[1]} for k, v in scope.SECTIONS.items()},
         "topics": prefs.TOPICS, "tabs": prefs.TABS,
         "goals": {k: {"title": v[0], "unit": v[1]} for k, v in prefs.GOALS.items()},
+        "system": await release.status(bool(members) and members[0].id == user.id),
     })
+
+
+@router.post("/web/api/update")
+async def update_start(body: dict, user: users.User = Depends(current_user)):
+    r = await release.request_update(user, str(body.get("version") or ""))
+    return {"text": r.text}
 
 
 @router.post("/web/api/settings")

@@ -481,6 +481,7 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
     <div class="grid g2" style="gap:0 24px" id="sSections"></div></div>
+  <div class="card" style="margin-top:14px"><h3>🛡 Версия и резервные копии</h3><div id="sSys"></div></div>
 </section>
 
 <section id="hist">
@@ -1217,6 +1218,30 @@ async function loadSettings() {
         try { SET.modes = await post('sections', {[g.dataset.sec]: b.dataset.v}); ME.modes = SET.modes;
           g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); flash(g); applyModes(); }
         catch (e) { toast('⚠️ ' + errText(e).slice(0, 200)); } }; }); });
+  if (SET.system) renderSys(SET.system);
+}
+// версия и копии (1.8)
+function ago(iso) {
+  if (!iso) return null; const t = new Date(iso), h = (Date.now() - t) / 36e5;
+  const s = t.toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+  return {s, old: h > 30};
+}
+function renderSys(y) {
+  const row = (name, sub, val, bad) => `<div class="opt"><div class="grow">${name}${sub ? `<div class="sub">${sub}</div>` : ''}</div><b style="${bad ? 'color:var(--bad)' : ''}">${val}</b></div>`;
+  const lb = ago(y.local_backup.at), off = ago(y.offsite.ok_at);
+  let h = row('Версия ассистента', y.available ? `Доступна ${esc(y.available.version)}` : (y.agent_ok ? 'Это последняя версия' : ''), esc(y.version));
+  if (y.available) h += `<div class="muted" style="font-size:13px;margin:4px 0 8px">${(y.available.notes || []).map(n => '• ' + esc(n)).join('<br>') || '• исправления и улучшения'}</div>`
+    + (y.updating ? '<div class="muted">⏳ Обновление идёт, это 2–5 минут…</div>'
+      : y.can_update ? `<button class="btn" id="sUpd">🔄 Обновить до ${esc(y.available.version)}</button> <span class="muted" style="font-size:12.5px">Сначала копия базы; если не запустится — вернётся прежняя версия.</span>`
+      : `<div class="muted" style="font-size:12.5px">Обновить может владелец${y.agent_ok ? '' : ' (сейчас агент на сервере не отвечает)'}.</div>`);
+  h += row('Копия на сервере', 'Делается каждую ночь', lb ? lb.s + (y.local_backup.size_mb ? `, ${y.local_backup.size_mb} МБ` : '') + (lb.old ? ' ⚠️' : '') : '—', !lb || lb.old);
+  h += row('Копия в Яндекс Облаке', 'Вне сервера, на случай его потери', off ? off.s + (off.old ? ' ⚠️' : '') : 'не настроено', !off || off.old);
+  if (y.disk.free_gb != null) h += row('Свободно на диске', '', `${y.disk.free_gb} ГБ`, y.disk.free_gb < 3);
+  if (!y.agent_ok) h += '<div class="muted" style="font-size:12.5px;margin-top:8px">⚠️ Агент на сервере не отвечает — копии и обновления не отслеживаются.</div>';
+  $('#sSys').innerHTML = h;
+  const b = $('#sUpd'); if (b) b.onclick = async () => { b.disabled = true;
+    try { const r = await post('update', {version: y.available.version}); toast(r.text); y.updating = true; renderSys(y); }
+    catch (e) { b.disabled = false; toast('⚠️ ' + errText(e).slice(0, 200)); } };
 }
 // личные разделы: выбор «чьи данные» прячем, подписи меняем
 function applyModes() {

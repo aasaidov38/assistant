@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from . import alice, analytics, brain, mobile, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
+from . import alice, analytics, brain, mobile, release, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
 from .config import get_settings
 from .schemas import Action, Inbound, Reply
 from .util import esc, today
@@ -29,16 +29,20 @@ async def lifespan(app: FastAPI):
     await db.connect(s.database_url)
     await db.migrate()
     await users.sync_allowed_users()
+    try:
+        await release.announce_if_updated()      # «Ассистент обновлён до …» — один раз после обновления
+    except Exception:
+        log.exception("Объявление о новой версии")
     stop = asyncio.Event()
     worker = asyncio.create_task(jobs.loop(stop))
-    log.info("Ядро запущено. Пользователей в ALLOWED_USERS: %d", len(s.allowed()))
+    log.info("Ядро %s запущено. Пользователей в ALLOWED_USERS: %d", release.VERSION, len(s.allowed()))
     yield
     stop.set()
     await worker
     await db.close()
 
 
-app = FastAPI(title="Личный ассистент: ядро", version="1.7.2", lifespan=lifespan)
+app = FastAPI(title="Личный ассистент: ядро", version=release.VERSION, lifespan=lifespan)
 app.include_router(web.router)      # веб-панель /web (вход через бота)
 app.include_router(web_life.router) # панель: платежи, выписки, гараж, дом, лекарства (1.5)
 app.include_router(mobile.router)   # чат /web/chat для панели и Android-приложения (1.7.1)

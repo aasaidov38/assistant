@@ -11,7 +11,7 @@ import logging
 import re
 
 from . import (ai, alice, analytics, bank, bills, budgets, debts, digest, finance, garage, habits, meds, meters, morning,
-               notes, nutrition, papers, prefs, recipes, savings, scope, shopping, tasks, ticktick, trips, undo, users, web)
+               notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, tasks, ticktick, trips, undo, users, web)
 from .config import get_settings
 from .prompts import PHOTO_PARSER, TEXT_PARSER
 from .schemas import Action, Button, Inbound, Reply
@@ -133,7 +133,8 @@ async def handle_action(act: Action) -> Reply:
                "h": habits.handle_action, "w": web.handle_action, "u": undo.handle_action,
                "b": bills.handle_action, "i": bank.handle_action, "v": savings.handle_action,
                "o": garage.handle_action, "d": papers.handle_action, "r": meters.handle_action,
-               "x": meds.handle_action, "j": trips.handle_action, "e": debts.handle_action}.get(parts[0])
+               "x": meds.handle_action, "j": trips.handle_action, "e": debts.handle_action,
+               "y": release.handle_action}.get(parts[0])
     if not handler or len(parts) < 3:
         return Reply(text="Кнопка устарела.")
     reply = await handler(user, parts)
@@ -198,6 +199,8 @@ async def handle_text(user: users.User, text: str, source: str, header: str = ""
         return await trips.show(user)
     if cmd in ("/debts", "долги", "кто должен", "кто мне должен"):
         return await debts.list_reply(user)
+    if cmd in ("/version", "версия", "/update", "обновление"):
+        return await release.version_reply(user)
     if cmd in ("/settings", "настройки"):
         return await settings_reply(user)
     if cmd in ("/meds", "лекарства", "таблетки", "витамины"):

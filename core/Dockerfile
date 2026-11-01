@@ -8,6 +8,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY migrations ./migrations
+COPY CHANGELOG.md ./CHANGELOG.md
 
 RUN useradd -r -u 10001 app
 USER app
