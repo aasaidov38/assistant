@@ -7,11 +7,11 @@ import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import cards, release
+from . import alice, cards, push, release, ticktick
 from . import bank, bills, db, debts, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
 from .config import get_settings
 from .schemas import Reply
@@ -712,6 +712,75 @@ async def cards_used(cid: int, user: users.User = Depends(current_user)):
         raise HTTPException(404, "Карты нет")
     await cards.mark_used(user, cid)
     return {"ok": True}
+
+
+# ---------- 1.8. Интеграции и push ----------
+
+SOON = [("❤️ Здоровье: шаги, сон, пульс", "Health Connect на Android (Mi Fitness и др.)", "1.9"),
+        ("🏦 Уведомления банков", "Траты из push и SMS банков на телефоне", "1.9"),
+        ("📶 Баланс мобильного", "Остаток и списания оператора", "1.9"),
+        ("🍏 iPhone", "Команды для приложения «Быстрые команды»", "1.9"),
+        ("✉️ Gmail", "Чеки, счета и брони из почты", "1.10")]
+
+
+@router.get("/web/api/integrations")
+async def integrations(user: users.User = Depends(current_user)):
+    import time as _t
+    s = get_settings()
+    chans = {c for c, _ in await users.identities(user.id)}
+    tt = {"configured": ticktick.configured(), "connected": False}
+    if tt["configured"]:
+        info = await ticktick.token_info(user.id)
+        tt.update(connected=info["connected"], expired=bool(info.get("expires_at")) and not info["connected"],
+                  notify=info.get("notify", True), last_error=info.get("last_error"),
+                  days=int((info["expires_at"] - _t.time()) // 86400) if info.get("expires_at") else None,
+                  sync_min=int((_t.time() - info["last_sync"]) // 60) if info.get("last_sync") else None,
+                  link=ticktick.auth_link(user.id))
+    keys = await push.vapid() if push.AVAILABLE else None
+    site = s.public_url.rstrip("/") if s.public_url else ""
+    return jsonable({
+        "telegram": {"connected": "telegram" in chans},
+        "ticktick": tt,
+        "alice": {"configured": bool(s.alice_secret and s.public_url), "linked": "alice" in chans},
+        "push": {"available": bool(keys), "key": keys["pub"] if keys else None, "count": await push.count(user.id)},
+        "android": {"url": site + "/#apps" if site else None},
+        "soon": [{"title": a, "sub": b, "version": v} for a, b, v in SOON],
+    })
+
+
+@router.post("/web/api/integrations/ticktick/disconnect")
+async def ticktick_disconnect(user: users.User = Depends(current_user)):
+    await db.get_pool().execute("DELETE FROM integrations WHERE user_id=$1 AND provider='ticktick'", user.id)
+    return {"text": "TickTick отключён. Задачи в нём остались, ассистент их больше не видит."}
+
+
+@router.post("/web/api/integrations/alice/code")
+async def alice_code(user: users.User = Depends(current_user)):
+    return {"text": (await alice.link_code(user)).text}
+
+
+@router.post("/web/api/push/subscribe")
+async def push_subscribe(body: dict, request: Request, user: users.User = Depends(current_user)):
+    if not push.AVAILABLE:
+        raise HTTPException(503, "Push недоступен на сервере")
+    try:
+        await push.subscribe(user.id, body, request.headers.get("user-agent", ""))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "count": await push.count(user.id)}
+
+
+@router.post("/web/api/push/unsubscribe")
+async def push_unsubscribe(body: dict, user: users.User = Depends(current_user)):
+    await push.unsubscribe(user.id, str(body.get("endpoint") or ""))
+    return {"ok": True, "count": await push.count(user.id)}
+
+
+@router.post("/web/api/push/test")
+async def push_test(user: users.User = Depends(current_user)):
+    n = await push.send(user.id, {"title": "🔔 Проверка уведомлений", "body": "Так будут выглядеть напоминания ассистента.",
+                                  "url": "/web/#set"})
+    return {"ok": n > 0, "text": f"Отправил на устройств: {n}" if n else "Не дошло ни до одного устройства"}
 
 
 # ---------- 1.7. Настройки ----------

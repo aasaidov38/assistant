@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from . import analytics, budgets, db, finance, habits, morning, notify, nutrition, scope, shopping, tasks, ticktick, undo, users
@@ -159,18 +159,40 @@ async def current_user(request: Request) -> users.User:
     return user
 
 
-@router.get("/web/static/chart.umd.js")
-async def chart_js():
-    # Библиотека графиков Chart.js 4.4.1 (MIT) лежит рядом, чтобы панель не зависела от внешних сайтов
-    return FileResponse(INDEX.parent / "chart.umd.js", media_type="text/javascript",
-                        headers={"Cache-Control": "public, max-age=604800"})
+# Файлы панели, которые лежат рядом (без внешних сайтов): Chart.js 4.4.1 (MIT), генератор QR Kazuhiko Arase (MIT),
+# иконки приложения. Только этот список — никаких произвольных путей.
+STATIC = {"chart.umd.js": "text/javascript", "qrcode.js": "text/javascript", "icon-192.png": "image/png",
+          "icon-512.png": "image/png", "icon-maskable-512.png": "image/png", "apple-touch-icon.png": "image/png"}
 
 
-@router.get("/web/static/qrcode.js")
-async def qrcode_js():
-    # Генератор QR-кодов Kazuhiko Arase (MIT, лицензия в qrcode.LICENSE.txt) — для карт лояльности
-    return FileResponse(INDEX.parent / "qrcode.js", media_type="text/javascript",
-                        headers={"Cache-Control": "public, max-age=604800"})
+@router.get("/web/static/{name}")
+async def static_file(name: str):
+    if name not in STATIC:
+        raise HTTPException(404)
+    return FileResponse(INDEX.parent / name, media_type=STATIC[name], headers={"Cache-Control": "public, max-age=604800"})
+
+
+MANIFEST = {
+    "name": "Семейный ассистент", "short_name": "Ассистент", "lang": "ru", "dir": "ltr",
+    "description": "Траты, питание, дела, покупки и напоминания семьи",
+    "id": "/web/", "start_url": "/web/", "scope": "/web/", "display": "standalone",
+    "background_color": "#f3f4f8", "theme_color": "#3b82f6",
+    "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+              {"src": "/web/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
+              {"src": "/web/static/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
+    "shortcuts": [{"name": "Чат", "url": "/web/chat", "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192"}]},
+                  {"name": "Карты лояльности", "url": "/web/#cards", "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192"}]}],
+}
+
+
+@router.get("/web/manifest.webmanifest")
+async def manifest():
+    return JSONResponse(MANIFEST, media_type="application/manifest+json", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/web/sw.js")
+async def service_worker():
+    return FileResponse(INDEX.parent / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/web")

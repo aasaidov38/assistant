@@ -1,7 +1,7 @@
 """Исходящие сообщения пользователю (напоминания, уведомления из n8n).
 
 Каждый канал добавляется своей функцией в SENDERS. Сейчас есть Telegram;
-позже сюда же добавятся, например, SMS или push.
+С версии 1.8 уведомления дублируются push-сообщением в браузеры, где его включили (push.py).
 """
 import logging
 
@@ -52,7 +52,20 @@ async def send(user_id: int, reply: Reply, topic: str | None = None, urgent: boo
             await get_pool().execute("INSERT INTO outbox (user_id, reply, send_after) VALUES ($1, $2::jsonb, $3)",
                                      user_id, reply.model_dump(), until)
             return True
-    return await deliver(user_id, reply)
+    ok = await deliver(user_id, reply)
+    if quiet != "drop":                 # копии действий из панели в push не шлём
+        ok = await _push(user_id, reply) or ok
+    return ok
+
+
+async def _push(user_id: int, reply: Reply) -> bool:
+    """Копия уведомления в браузеры, где человек включил push (панель, установленная как приложение)."""
+    try:
+        from . import push
+        return await push.send(user_id, push.message(reply.text)) > 0
+    except Exception as e:
+        log.warning("Push: %s", e)
+        return False
 
 
 async def deliver(user_id: int, reply: Reply) -> bool:
@@ -108,6 +121,7 @@ async def flush_outbox() -> None:
             data = json.loads(data)
         try:
             await deliver(r["user_id"], Reply(**data))
+            await _push(r["user_id"], Reply(**data))
         except Exception as e:
             log.warning("Отложенное сообщение не отправлено: %s", e)
     await pool.execute("DELETE FROM outbox WHERE sent_at < now() - interval '7 days'")

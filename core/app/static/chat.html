@@ -9,6 +9,12 @@ try { const u = JSON.parse(localStorage.getItem('ui') || '{}');
   if (u.theme === 'light' || u.theme === 'dark') document.documentElement.dataset.theme = u.theme;
   if (u.animations === false) document.documentElement.classList.add('noanim'); } catch (e) {}</script>
 <title>Ассистент · чат</title>
+<link rel="manifest" href="/web/manifest.webmanifest">
+<meta name="theme-color" content="#3b82f6">
+<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png">
+<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ассистент">
 <style>
 :root{color-scheme:light;
   --bg:#f3f4f8;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e5e7ee;--chip:#e9ecf4;
@@ -465,6 +471,7 @@ list.addEventListener('click', e => {      // ссылки из ответов �
 });
 
 if (!VOICE) $('#sub').textContent = 'голосовые — в приложении';
+if (!APP && 'serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js', {scope: '/web/'}).catch(() => {});
 load(); render(); updateSend();
 window.onShared();
 </script>

@@ -4,7 +4,7 @@ import asyncio, json, os, subprocess, tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import asyncpg
-from app import ai, brain, cards, db, notify, release, scope, undo, users, web_life
+from app import ai, brain, cards, db, notify, push, release, scope, undo, users, web_life
 from app.schemas import Action
 
 from _env import PSQL
@@ -24,7 +24,7 @@ async def fake_deliver(uid, reply):
 
 
 SEED = """
-TRUNCATE families, users, user_identities, outbox, app_state, loyalty_cards RESTART IDENTITY CASCADE;
+TRUNCATE families, users, user_identities, outbox, app_state, loyalty_cards, push_subscriptions RESTART IDENTITY CASCADE;
 INSERT INTO families (name) VALUES ('Демо');
 INSERT INTO users (family_id, name) VALUES (1,'Алексей'), (1,'Мария');
 INSERT INTO user_identities (channel, external_id, user_id) VALUES ('telegram','111',1),('telegram','222',2);
@@ -241,6 +241,78 @@ async def main():
     check(not r["ok"] and "не храню" in r["text"], "API: банковская карта отклонена", r)
     await web_life.cards_used(1, user=alex)
     check(sql("select used_count from loyalty_cards where id=1") == "2", "API: отметка использования")
+    scope.leave()
+
+    print("12. Push: шифрование и подпись")
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    ua = ec.generate_private_key(ec.SECP256R1()); ua_pub = push._point(ua.public_key()); auth = os.urandom(16)
+    body = push.encrypt("Привет 👋".encode(), push.b64u(ua_pub), push.b64u(auth))
+    salt, rs, idlen = body[:16], int.from_bytes(body[16:20], "big"), body[20]
+    as_pub = body[21:21 + idlen]; ct = body[21 + idlen:]
+    sec = ua.exchange(ec.ECDH(), ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), as_pub))
+    ikm = push._hmac(push._hmac(auth, sec), b"WebPush: info\x00" + ua_pub + as_pub + b"\x01")
+    prk = push._hmac(salt, ikm)
+    pt = AESGCM(push._hmac(prk, b"Content-Encoding: aes128gcm\x00\x01")[:16]).decrypt(
+        push._hmac(prk, b"Content-Encoding: nonce\x00\x01")[:12], ct, None)
+    check(rs == 4096 and idlen == 65 and pt == "Привет 👋".encode() + b"\x02", "браузер расшифровывает (RFC 8291)", pt)
+    eph = ec.derive_private_key(int.from_bytes(push.unb64u("yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw"), "big"), ec.SECP256R1())
+    out = push.encrypt(b"When I grow up, I want to be a watermelon",
+                       "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4",
+                       "BTBZMqHH6r4Tts7J_aSIgg", salt=push.unb64u("DGv6ra1nlYgDCS1FRnbzlw"), eph=eph)
+    check(push.b64u(out) == "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_"
+          "yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN", "пример из RFC 8291 (приложение A) совпал")
+    keys = await push.vapid()
+    check(keys == await push.vapid() and len(push.unb64u(keys["pub"])) == 65, "ключи VAPID создаются один раз")
+    hdr = push.vapid_header("https://fcm.googleapis.com/fcm/send/abc", keys)
+    jwt = hdr.split("t=")[1].split(",")[0]; h_, b_, sig = jwt.split(".")
+    claims = json.loads(push.unb64u(b_)); raw = push.unb64u(sig)
+    pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), push.unb64u(keys["pub"]))
+    try:
+        pub.verify(encode_dss_signature(int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:], "big")),
+                   f"{h_}.{b_}".encode(), ec.ECDSA(hashes.SHA256())); good = True
+    except Exception:
+        good = False
+    check(good and claims["aud"] == "https://fcm.googleapis.com" and hdr.endswith("k=" + keys["pub"]), "подпись VAPID верная", claims)
+    m = push.message("⏰ <b>Через 3 дн.</b> вернуть Ивану\n10 000 ₽ &amp; ещё")
+    check(m["title"] == "⏰ Через 3 дн. вернуть Ивану" and m["body"] == "10 000 ₽ & ещё", "текст без HTML", m)
+
+    print("13. Push: подписки и отправка")
+    POSTS = []
+
+    class FakeResp:
+        def __init__(self, code): self.status_code, self.text = code, ""
+
+    class FakeClient:
+        async def post(self, url, content=None, headers=None):
+            POSTS.append((url, headers)); return FakeResp(410 if "dead" in url else 201)
+    push._client = FakeClient()
+    sub = {"endpoint": "https://push.example/ok", "keys": {"p256dh": push.b64u(ua_pub), "auth": push.b64u(auth)}}
+    await push.subscribe(1, sub)
+    await push.subscribe(1, {**sub, "endpoint": "https://push.example/dead"})
+    try:
+        await push.subscribe(1, {"endpoint": "http://x", "keys": {}}); bad = False
+    except ValueError:
+        bad = True
+    check(bad and await push.count(1) == 2, "две подписки, кривая отклонена")
+    SENT.clear(); POSTS.clear()
+    sql("UPDATE users SET settings = settings - 'quiet'")
+    await notify.send(1, release.Reply(text="⏰ Напоминание\nоплатить интернет"), topic="bills", urgent=True)
+    check(len(SENT) == 1 and len(POSTS) == 2 and POSTS[0][1]["Content-Encoding"] == "aes128gcm" and "vapid t=" in POSTS[0][1]["Authorization"],
+          "напоминание: Telegram + push", POSTS)
+    check(await push.count(1) == 1, "подписка с ответом 410 удалена")
+    POSTS.clear(); await notify.send(1, release.Reply(text="копия"), quiet="drop")
+    check(not POSTS, "копии из панели в push не идут")
+    await scope.enter(alex)
+    I = await web_life.integrations(user=alex)
+    check(I["push"]["available"] and I["push"]["key"] == keys["pub"] and I["push"]["count"] == 1 and I["telegram"]["connected"]
+          and len(I["soon"]) == 5, "API интеграций", I)
+    r = await web_life.push_test(user=alex)
+    check(r["ok"], "пробное уведомление", r)
+    await web_life.push_unsubscribe({"endpoint": "https://push.example/ok"}, user=alex)
+    check(await push.count(1) == 0, "отписка")
     scope.leave()
 
     print("ИТОГ:", "всё прошло" if not FAILS else FAILS)

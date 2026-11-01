@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Семейный ассистент</title>
+<link rel="manifest" href="/web/manifest.webmanifest">
+<meta name="theme-color" content="#3b82f6">
+<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png">
+<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ассистент">
 <script>/* тема и анимации из настроек — до отрисовки, чтобы не мигало */
 try { const u = JSON.parse(localStorage.getItem('ui') || '{}');
   if (u.theme === 'light' || u.theme === 'dark') document.documentElement.dataset.theme = u.theme;
@@ -238,6 +244,7 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
 .debt .nm{font-weight:650;font-size:15.5px}.debt .bal{margin-left:auto;white-space:nowrap;font-size:20px;font-weight:750;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .debt .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}.debt .acts input{width:110px;padding:5px 9px}.debt .acts input[type=date]{width:auto}
 @media (max-width:560px){#debts .kpis .kpi:last-child{grid-column:1/-1}.debt .bal{font-size:17px}}
+a.btn{text-decoration:none;display:inline-block}
 .lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
 @media (max-width:560px){.lcard{padding:11px;border-radius:13px}.lcard .st{font-size:15px}.lcard .no{font-size:11.5px}}
 .lcard{position:relative;aspect-ratio:1.586;border-radius:16px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;
@@ -510,8 +517,7 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
       <h3 style="margin-top:14px">💬 Связь</h3>
       <div class="opt"><div class="grow">Копии в Telegram<div class="sub">Дублировать в бот то, что сделано в панели и через Алису</div></div>
         <label class="sw"><input type="checkbox" id="sMirror"><span></span></label></div>
-      <div class="opt"><div class="grow">TickTick: новые задачи<div class="sub" id="sTTsub">Сообщать о задачах, добавленных в TickTick</div></div>
-        <label class="sw"><input type="checkbox" id="sTT"><span></span></label></div></div>
+      <div class="muted" style="font-size:12.5px;margin-top:8px">TickTick, Алиса и push-уведомления — в карточке «Интеграции» ниже.</div></div>
     <div class="card"><h3>🔔 Напоминания <span class="saved" data-saved>✓ Сохранено</span></h3><div id="sTopics"></div></div>
     <div class="card"><h3>🎯 Мои цели <span class="saved" data-saved>✓ Сохранено</span></h3>
       <div class="goals" id="sGoals"></div>
@@ -520,6 +526,9 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
     <div class="grid g2" style="gap:0 24px" id="sSections"></div></div>
+  <div class="card" style="margin-top:14px"><h3>🔌 Интеграции <span class="saved" data-saved>✓ Сохранено</span></h3>
+    <div class="muted" style="font-size:13px;margin-top:-6px">Что подключено у вас. Ключи и пароли сервисов здесь не вводятся и не показываются.</div>
+    <div class="grid g2" style="gap:0 24px" id="sInt"></div></div>
   <div class="card" style="margin-top:14px"><h3>🛡 Версия и резервные копии</h3><div id="sSys"></div></div>
 </section>
 
@@ -1335,9 +1344,6 @@ async function loadSettings() {
   $('#sQuiet').onchange = e => saveSet({quiet: {on: e.target.checked}}, e.target);
   ['#sQFrom', '#sQTo'].forEach(id => $(id).onchange = e => e.target.value && saveSet({quiet: {[id === '#sQFrom' ? 'from' : 'to']: e.target.value}}, e.target));
   sw('#sMirror', m.mirror); $('#sMirror').onchange = e => saveSet({mirror: e.target.checked}, e.target);
-  sw('#sTT', m.ticktick.notify, !m.ticktick.connected);
-  $('#sTTsub').textContent = m.ticktick.connected ? 'Сообщать о задачах, добавленных в TickTick' : 'TickTick не подключён (в боте: /ticktick)';
-  $('#sTT').onchange = e => saveSet({ticktick: {notify: e.target.checked}}, e.target);
   $('#sTopics').innerHTML = Object.entries(SET.topics).map(([k, t]) => `<div class="opt"><div class="grow">${esc(t)}</div>
     <label class="sw"><input type="checkbox" data-topic="${k}" ${m.notify[k] ? 'checked' : ''}><span></span></label></div>`).join('')
     + '<div class="muted" style="font-size:12.5px;margin-top:8px">Выключенная тема не приходит совсем — ни в бот, ни в тихие часы потом.</div>';
@@ -1357,6 +1363,68 @@ async function loadSettings() {
           g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); flash(g); applyModes(); }
         catch (e) { toast('⚠️ ' + errText(e).slice(0, 200)); } }; }); });
   if (SET.system) renderSys(SET.system);
+  loadInt();
+}
+// ---------- интеграции (1.8) ----------
+let INSTALL = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL = e; if ($('#sInt').innerHTML) loadInt(); });
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent), STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const u8 = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); const b = atob(s + '='.repeat((4 - s.length % 4) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function pushSub() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !window.Notification) return {state: 'unsupported'};
+  const reg = await navigator.serviceWorker.getRegistration('/web/');
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  return {state: sub ? 'on' : Notification.permission === 'denied' ? 'denied' : 'off', sub, reg};
+}
+async function loadInt() {
+  let I; try { I = await api('integrations'); } catch (e) { $('#sInt').innerHTML = '<div class="muted">Не загрузилось: ' + esc(errText(e)) + '</div>'; return; }
+  const P = await pushSub();
+  const st = (ok, txt) => txt ? `<span class="pill ${ok ? 'grn' : ''}" style="font-size:12px">${ok ? '✓ ' : ''}${esc(txt)}</span>` : '';
+  const item = (name, sub, right, extra) => `<div class="opt" style="align-items:flex-start"><div class="grow">${name}<div class="sub">${sub}</div>${extra || ''}</div>${right}</div>`;
+  const t = I.ticktick; let h = '';
+  h += item('✈️ Telegram', 'Основной канал: бот, напоминания, копии из панели', st(I.telegram.connected, I.telegram.connected ? 'подключён' : 'нет'));
+  if (!t.configured) h += item('✅ TickTick', 'Владелец ещё не включил TickTick на сервере (README, раздел «TickTick»)', st(false, 'не настроен'));
+  else h += item('✅ TickTick', t.connected ? `Задачи двусторонне. Синхронизация: ${t.sync_min == null ? 'ещё не было' : t.sync_min + ' мин назад'}${t.days != null ? ` · доступ ещё ${t.days} дн.` : ''}`
+      + (t.last_error ? `<br><span style="color:var(--bad)">⚠️ ${esc(t.last_error)}</span>` : '') : (t.expired ? 'Доступ истёк — подключите заново' : 'Задачи из ассистента появятся в TickTick и обратно'),
+    st(t.connected, t.connected ? 'подключён' : 'нет'),
+    `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center"><a class="btn sm" href="${esc(t.link)}" target="_blank" rel="noopener">${t.connected ? '🔄 Переподключить' : '🔗 Подключить'}</a>`
+      + (t.connected ? `<label style="display:flex;gap:6px;align-items:center;font-size:13px;flex-basis:100%;order:3"><input type="checkbox" style="width:auto;flex:none" id="iTTn" ${t.notify ? 'checked' : ''}> сообщать о новых задачах из TickTick</label>
+        <button class="btn sm" id="iTTx">Отключить</button>` : '') + '</div>');
+  h += item('🎙 Яндекс Алиса', I.alice.configured ? (I.alice.linked ? '«Алиса, попроси Семейного помощника записать трату 500 на такси»' : 'Голосом через колонку или телефон')
+      : 'Владелец ещё не включил навык на сервере (README, раздел «Алиса»)', st(I.alice.linked, I.alice.linked ? 'привязана' : 'нет'),
+    I.alice.configured ? `<div style="margin-top:6px"><button class="btn sm" id="iAl">🔢 ${I.alice.linked ? 'Привязать ещё устройство' : 'Получить код привязки'}</button> <span id="iAlCode" class="muted" style="font-size:13px"></span></div>` : '');
+  const pushTxt = {on: 'Напоминания приходят в этот браузер, даже когда панель закрыта', off: 'Напоминания приходят в этот браузер, даже когда панель закрыта',
+    denied: 'Уведомления запрещены в настройках браузера для этого сайта — разрешите их там', unsupported: IOS && !STANDALONE
+      ? 'На iPhone: «Поделиться» → «На экран Домой», откройте ассистента оттуда и включите здесь' : 'Этот браузер не умеет push-уведомления'}[P.state];
+  h += item('🔔 Уведомления в этом браузере', pushTxt + (I.push.count ? ` · устройств с push: ${I.push.count}` : ''), st(P.state === 'on', P.state === 'on' ? 'включены' : 'выкл'),
+    I.push.available && (P.state === 'on' || P.state === 'off') ? `<div style="display:flex;gap:6px;margin-top:6px">${P.state === 'on'
+      ? '<button class="btn sm" id="iPt">Прислать пробное</button><button class="btn sm" id="iPoff">Выключить</button>' : '<button class="btn sm pri" id="iPon">Включить</button>'}</div>`
+      : I.push.available ? '' : '<div class="muted" style="font-size:12px">На сервере нет библиотеки cryptography — push выключен.</div>');
+  h += item('📲 Панель как приложение', STANDALONE ? 'Вы уже открыли панель как приложение' : INSTALL ? 'Значок на рабочем столе, отдельное окно, push-уведомления'
+      : IOS ? 'Safari: «Поделиться» → «На экран Домой»' : 'В меню браузера: «Установить приложение» или «Добавить на главный экран»',
+    st(STANDALONE, STANDALONE ? 'установлено' : ''), INSTALL && !STANDALONE ? '<div style="margin-top:6px"><button class="btn sm pri" id="iInst">📲 Установить</button></div>' : '');
+  h += item('🤖 Приложение для Android', 'Чат, голосовые удержанием, «Поделиться → Ассистент» из других приложений',
+    '', I.android.url ? `<div style="margin-top:6px"><a class="btn sm" href="${esc(I.android.url)}" target="_blank" rel="noopener">Как установить</a></div>` : '');
+  h += `<div class="full" style="grid-column:1/-1;margin-top:10px"><div class="muted" style="font-size:12.5px;margin-bottom:6px">Скоро:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${I.soon.map(x => `<span class="pill" title="${esc(x.sub)}">${esc(x.title)} · ${esc(x.version)}</span>`).join('')}</div></div>`;
+  $('#sInt').innerHTML = h;
+  const card = $('#sInt');
+  $('#iTTn') && ($('#iTTn').onchange = e => saveSet({ticktick: {notify: e.target.checked}}, card));
+  $('#iTTx') && ($('#iTTx').onclick = e => { const b = e.target; if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Точно отключить?'; return; }
+    act(() => post('integrations/ticktick/disconnect'), loadInt); });
+  $('#iAl') && ($('#iAl').onclick = async () => { try { const r = await post('integrations/alice/code'); const m = r.text.match(/код <b>(\d+)<\/b>/);
+    $('#iAlCode').innerHTML = m ? `Скажите Алисе: «запусти навык Семейный помощник», затем «код <b>${m[1]}</b>». Код действует 15 минут.` : esc(r.text.replace(/<[^>]+>/g, '')); }
+    catch (e) { toast('⚠️ ' + errText(e)); } });
+  $('#iInst') && ($('#iInst').onclick = async () => { INSTALL.prompt(); await INSTALL.userChoice.catch(() => {}); INSTALL = null; loadInt(); });
+  $('#iPon') && ($('#iPon').onclick = async () => {
+    try {
+      if (await Notification.requestPermission() !== 'granted') { toast('Уведомления не разрешены'); return loadInt(); }
+      const reg = P.reg || await navigator.serviceWorker.register('/web/sw.js', {scope: '/web/'}); await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: u8(I.push.key)});
+      await post('push/subscribe', sub.toJSON()); toast('🔔 Уведомления включены'); loadInt();
+    } catch (e) { toast('⚠️ Не получилось включить: ' + errText(e).slice(0, 150)); } });
+  $('#iPoff') && ($('#iPoff').onclick = async () => { try { await post('push/unsubscribe', {endpoint: P.sub.endpoint}); await P.sub.unsubscribe(); } catch (e) {} loadInt(); });
+  $('#iPt') && ($('#iPt').onclick = () => act(() => post('push/test')));
 }
 // версия и копии (1.8)
 function ago(iso) {
@@ -1390,6 +1458,7 @@ function applyModes() {
 }
 
 // ---------- старт ----------
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js', {scope: '/web/'}).catch(() => {});
 (async () => {
   ME = await api('me');
   $('#me').textContent = ME.name;
@@ -1401,6 +1470,7 @@ function applyModes() {
   const mImp = location.hash.match(/^#import-(\d+)$/);
   if (mImp) { t = 'fin'; setTimeout(() => showImport(+mImp[1]), 600); }
   if (/^#cards?(-\d+)?$/.test(location.hash)) t = 'cards';
+  if (location.hash === '#set') { t = 'set'; history.replaceState(null, '', location.pathname); }
   const tb = document.querySelector(`#tabs [data-t="${t}"]`);
   (tb && !tb.hidden ? tb : document.querySelector('#tabs button')).click();
 })();
