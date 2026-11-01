@@ -168,3 +168,14 @@ POST /v1/inbound
 ## Версия 1.7.1: чат и Android-приложение
 - `mobile.py` + `static/chat.html`: страница `/web/chat` и API `/web/api/chat/send|action`. Сообщение превращается в `Inbound`/`Action` от Telegram-привязки вошедшего пользователя и идёт в `brain` — логика одна для бота, панели и приложения.
 - Android-приложение (отдельный архив, пакет `ru.saidov.assistant`) — оболочка над `/web/`: App Links (Caddy отдаёт `/.well-known/assetlinks.json`), «Поделиться» → `/web/chat`, голос OGG/Opus через мост `window.Android`.
+
+## Версия 1.8: обновления, голос, карты, интеграции, push
+
+| Что | Файлы | Детали |
+|---|---|---|
+| Версия и обновления | `release.py`, `scripts/host-agent.sh`, `VERSION`, `core/CHANGELOG.md`, миграция `009_v18.sql` (`app_state`) | Ядро и агент общаются файлами в `state/` (в ядре `/srv/state`): `host.json` (копии, диск; агент пишет каждую минуту), `update-available.json` (новая версия из ветки `stable`, раз в 30 мин), `update-request.json` (ядро — по кнопке владельца `y:<версия>:go`), `update-result.json` (итог; неудачу ядро сообщает владельцу). Объявление «что нового» — при старте ядра, если версия выросла (`app_state 'announced'`). Предложение — раз в 3 дня (`app_state 'update_offer'`). Ядро не имеет доступа к Docker и git |
+| Голос | `static/chat.html`, `ai.audio_name`, `mobile.py` | Удержание кнопки (pointer events, захват указателя), MediaRecorder в браузере, Android-мост в приложении. Тип `audio/webm;codecs=opus` → `audio/webm`, имя файла по типу (`voice.webm`, `.ogg`, `.m4a`) |
+| Карты лояльности | `cards.py`, `loyalty_cards`, раздел `cards` (общий), кнопки `c:`, отмена `c.<id>` | Формат: EAN-13/EAN-8 по контрольной цифре, Code 128, QR, текст. Банковские номера (16–19 цифр, 2/4/5/6, алгоритм Луна) отклоняются. Штрихкоды в панели рисуются SVG своим кодом (проверено по таблицам reportlab), QR — `static/qrcode.js` (MIT) |
+| Интеграции | `web_life.py` `/web/api/integrations…` | Статусы Telegram/TickTick/Алисы/push по пользователю; отключение TickTick удаляет строку `integrations` |
+| PWA и push | `push.py`, `push_subscriptions`, `static/sw.js`, `/web/manifest.webmanifest`, иконки | RFC 8291 (aes128gcm) + VAPID (ES256) на `cryptography`; проверено по примеру из RFC 8291. `notify.send` после Telegram шлёт push (кроме `quiet="drop"` — копий из панели); 404/410 удаляют подписку, 5 ошибок подряд — тоже |
+| Тесты | `tests/`, `.github/workflows/tests.yml` | На настоящей PostgreSQL, заглушки asyncpg/fastapi/httpx в `tests/stubs` |

@@ -1,5 +1,9 @@
 # Обновление ассистента через Claude Code
 
+> С версии 1.8 обновления приходят кнопкой «🔄 Обновить» в боте. Переход на них — один раз по
+> `docs/INSTALL_1.8_CLAUDE_CODE.md`. Эта инструкция (обновление из архива) нужна, только если сервер ещё
+> не подключён к GitHub или агент обновлений не работает.
+
 Что нужно заранее:
 - вход на сервер по SSH-ключу настроен, команда `ssh assistant "hostname"` работает без пароля;
 - `assistant.zip` с новой версией лежит в папке на компьютере (например, «Загрузки»).
@@ -37,7 +41,7 @@ core, telegram, db, backup). Рядом работают n8n и Caddy в /opt/n8
 6. Проверь:
    - ssh assistant "cd /opt/assistant && docker compose logs --tail 60 core | grep -E 'миграц|Ядро запущено|Error|Traceback'"
      Ожидается «Применяю миграцию 008_settings_debts.sql» (и более ранние, если их ещё не было) и «Ядро запущено», без Traceback.
-   - ssh assistant "curl -s http://127.0.0.1:8100/openapi.json | grep -o '\"version\":\"[^\"]*\"' | head -1"  → 1.7.2
+   - ssh assistant "curl -s http://127.0.0.1:8100/openapi.json | grep -o '\"version\":\"[^\"]*\"' | head -1"  → версия из архива
    - ssh assistant "cd /opt/assistant && bash scripts/check.sh"
    - ssh assistant "curl -s -o /dev/null -w '%{http_code}' https://assistant.saidov.ru/health"  → 200
 6a. Android-приложение (с версии 1.7.1): ссылки https://assistant.saidov.ru/web… должны открываться сразу

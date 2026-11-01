@@ -1,0 +1,39 @@
+name: tests
+on:
+  push:
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: assistant
+          POSTGRES_PASSWORD: assistant
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U assistant" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: assistant
+      PGPASSWORD: assistant
+      PGDATABASE: assistant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Библиотеки
+        run: pip install pydantic==2.13.5 cryptography==50.0.1 tzdata
+      - name: Клиент PostgreSQL
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Версия совпадает
+        run: grep -q "VERSION = \"$(cat VERSION)\"" core/app/release.py
+      - name: Агент на сервере — синтаксис
+        run: bash -n scripts/host-agent.sh
+      - name: Проверки
+        run: bash tests/run_all.sh --fresh
