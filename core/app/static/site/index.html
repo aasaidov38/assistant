@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Семейный ассистент</title>
+<meta name="description" content="Семейный ассистент: деньги, питание, дела, дом, гараж и поездки — обычными фразами в Telegram, голосом, через Алису и в веб-панели.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>/* тема: выбор на сайте (переключатель) → тема панели из ⚙️ Настроек → системная */
+try { const t = localStorage.getItem('site-theme') || (JSON.parse(localStorage.getItem('ui') || '{}').theme);
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+/* План: холодная «байкальская» бумага, чернильный текст, синий акцент панели и сигнальный оранжевый для «что дальше».
+   Слева — оглавление с номерами разделов, справа — колонка текста; версии идут журналом, как записи в судовом журнале. */
+:root{
+  /* Пастель: лавандовая бумага, мягкий барвинковый акцент, персиковый «что дальше», мятный «готово» */
+  --paper:#f6f4fb; --card:#ffffff; --ink:#2e2f45; --ink2:#4a4c66; --muted:#7c7e98; --line:#e7e4f2;
+  --accent:#5d6fd0; --accent-soft:#ebeefc; --signal:#c8693f; --signal-soft:#fde9df; --good:#2f8a68; --good-soft:#e0f3ea;
+  --bar:#9fadf0; --bar-last:#f2b394; --hero-tint:#f1edfb;
+  --bubble-me:#e3e7fb; --bubble-me-ink:#2e2f45;
+  --f-display:"Unbounded", "Montserrat", system-ui, sans-serif;
+  --f-body:"Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r:18px; --shadow:0 1px 2px rgba(46,47,69,.04), 0 10px 30px rgba(93,111,208,.07);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1c1d2b; --card:#25273a; --ink:#eceaf6; --ink2:#cfcde3; --muted:#9a9cb8; --line:#34364d;
+    --accent:#aab6f7; --accent-soft:#2f3352; --signal:#f4b896; --signal-soft:#3d2f33; --good:#94d9bc; --good-soft:#26393a;
+    --bar:#8d9be6; --bar-last:#e9a585; --hero-tint:#24263a;
+    --bubble-me:#353a63; --bubble-me-ink:#eceaf6; --shadow:0 1px 2px rgba(0,0,0,.25), 0 10px 30px rgba(0,0,0,.22);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1c1d2b; --card:#25273a; --ink:#eceaf6; --ink2:#cfcde3; --muted:#9a9cb8; --line:#34364d;
+  --accent:#aab6f7; --accent-soft:#2f3352; --signal:#f4b896; --signal-soft:#3d2f33; --good:#94d9bc; --good-soft:#26393a;
+  --bar:#8d9be6; --bar-last:#e9a585; --hero-tint:#24263a;
+  --bubble-me:#353a63; --bubble-me-ink:#eceaf6; --shadow:0 1px 2px rgba(0,0,0,.25), 0 10px 30px rgba(0,0,0,.22);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:20px}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-underline-offset:3px}
+img{max-width:100%;display:block}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:-.02em;text-wrap:balance;margin:0}
+h2{font-size:clamp(24px,3vw,32px);line-height:1.15}
+h3{font-size:17px;line-height:1.3;font-family:var(--f-body);font-weight:700;letter-spacing:0}
+p{margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ---------- каркас ---------- */
+.wrap{max-width:1220px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:220px 1fr;gap:48px}
+@media (max-width:960px){.wrap{grid-template-columns:1fr;gap:0}}
+.toc{position:sticky;top:0;align-self:start;height:100vh;padding:28px 0;display:flex;flex-direction:column;gap:22px}
+@media (max-width:960px){.toc{display:none}}
+.brand{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--ink)}
+.brand .mark{width:36px;height:36px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent);font:700 15px var(--f-display)}
+.brand b{font:700 14px/1.2 var(--f-display)}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;counter-reset:toc}
+.toc li a{display:flex;gap:10px;padding:6px 10px;border-radius:9px;color:var(--ink2);text-decoration:none;font-size:14.5px;counter-increment:toc}
+.toc li a::before{content:counter(toc, decimal-leading-zero);font:500 12px/1.9 var(--f-mono);color:var(--muted)}
+.toc li a:hover{background:var(--card)}
+.toc li a.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.toc .cta{margin-top:auto}
+main{min-width:0;padding:28px 0 60px}
+.topbar{display:none}
+@media (max-width:960px){
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0}
+  .topbar nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px 4px}
+  .topbar nav a{flex:none;font-size:13.5px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--ink2);background:var(--card)}
+}
+.mnav{display:none}
+@media (max-width:960px){.mnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -20px 8px;padding:0 20px 6px;position:sticky;top:0;z-index:5;background:var(--paper)}
+  .mnav a{flex:none;font-size:13.5px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--ink2);background:var(--card)}}
+section{padding:56px 0 8px;display:flex;flex-direction:column;gap:22px}
+.kicker{font:600 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:18px;color:var(--ink2);max-width:62ch}
+.text{max-width:66ch;color:var(--ink2)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:12px;font:600 15px var(--f-body);text-decoration:none;border:1px solid var(--line);color:var(--ink);background:var(--card);transition:transform .15s,border-color .2s}
+.btn:hover{border-color:var(--accent)}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--shadow)}
+
+/* ---------- первый экран ---------- */
+.hero{background:var(--hero-tint);border-radius:28px;padding:32px;margin-top:8px;display:grid;grid-template-columns:1.05fr 1fr;gap:36px;align-items:center;padding-top:20px}
+@media (max-width:1100px){.hero{grid-template-columns:1fr}}
+@media (max-width:640px){.hero{padding:20px 16px;border-radius:22px}}
+.hero h1{font-size:clamp(34px,5vw,58px);line-height:1.02}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero .row{display:flex;gap:10px;flex-wrap:wrap}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:640px){.facts{grid-template-columns:repeat(2,1fr)}}
+.fact{padding:14px 16px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.fact b{display:block;font:700 26px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.fact span{font-size:13px;color:var(--muted)}
+
+/* чат */
+.chat{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;max-width:520px;justify-self:center;width:100%}
+.chat .head{display:flex;align-items:center;gap:10px;padding:2px 4px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.chat .head .av{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700}
+.chat .head small{display:block;color:var(--muted);font-size:12px;line-height:1.2}
+.msg{max-width:88%;padding:9px 13px;border-radius:16px;font-size:14.5px;line-height:1.45;white-space:pre-line}
+.msg.me{align-self:flex-end;background:var(--bubble-me);color:var(--bubble-me-ink);border-bottom-right-radius:5px}
+.msg.bot{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:5px}
+.msg .btns{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;white-space:normal}
+.msg .btns span{font-size:12.5px;padding:4px 9px;border-radius:9px;background:var(--card);border:1px solid var(--line);color:var(--ink2)}
+.msg code{background:var(--card);border-radius:5px;padding:1px 4px}
+.msg.hl{animation:pulse 1.6s ease-out}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+
+/* ---------- о проекте ---------- */
+.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.principles .card h3{margin-bottom:6px}
+.principles .card p{color:var(--ink2);font-size:15px}
+.principles .n{font:600 12px var(--f-mono);color:var(--accent);margin-bottom:8px;display:block}
+
+/* ---------- каналы ---------- */
+.channels{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:7px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:14px;color:var(--ink2)}
+
+/* ---------- возможности ---------- */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.feat{display:flex;flex-direction:column;gap:8px}
+.feat .t{display:flex;align-items:center;gap:10px}
+.feat .ic{width:38px;height:38px;border-radius:11px;background:var(--accent-soft);display:grid;place-items:center;font-size:19px;flex:none}
+.feat p{font-size:14.5px;color:var(--ink2)}
+.say{display:flex;flex-direction:column;gap:4px;margin-top:auto}
+.say code{display:block;font-size:12.8px;padding:6px 9px;border-radius:8px;background:var(--paper);border:1px dashed var(--line);color:var(--ink)}
+.feat .since{font:500 11.5px var(--f-mono);color:var(--muted)}
+
+/* ---------- скриншоты ---------- */
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;align-self:flex-start}
+.seg button{border:0;background:none;font:600 14px var(--f-body);padding:7px 14px;border-radius:9px;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--accent-soft);color:var(--accent)}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.shots.phone{grid-template-columns:repeat(auto-fit,minmax(200px,260px))}
+.shot{margin:0;display:flex;flex-direction:column;gap:8px}
+.shot button{padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:zoom-in;background:var(--card);box-shadow:var(--shadow);transition:transform .2s}
+.shot button:hover{transform:translateY(-2px)}
+.shot img{width:100%;height:auto;aspect-ratio:var(--ar,16/11);object-fit:cover;object-position:top}
+.shot figcaption{font-size:14px;color:var(--ink2)}
+.shot figcaption b{color:var(--ink)}
+dialog{border:0;padding:0;background:transparent;max-width:min(1200px,96vw);max-height:94vh}
+dialog::backdrop{background:rgba(5,10,16,.82)}
+dialog img{max-height:88vh;width:auto;border-radius:12px;margin:auto}
+dialog p{color:#fff;text-align:center;margin-top:8px;font-size:14px}
+dialog .x{position:fixed;top:14px;right:16px;border:0;background:rgba(255,255,255,.15);color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
+
+/* ---------- архитектура ---------- */
+.arch{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:14px;align-items:stretch}
+@media (max-width:820px){.arch{grid-template-columns:1fr}}
+.arch .col{display:flex;flex-direction:column;gap:8px}
+.arch .lbl{font:600 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.node{padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.node small{display:block;color:var(--muted);font-size:12.5px}
+.core{border:2px solid var(--bar);background:linear-gradient(180deg,var(--accent-soft),var(--card) 55%);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.core h3{font-family:var(--f-display);font-size:18px}
+.mods{display:flex;flex-wrap:wrap;gap:5px}
+.mods span{font:500 12px var(--f-mono);padding:3px 7px;border-radius:7px;background:var(--card);border:1px solid var(--line);color:var(--ink2)}
+.flow{display:flex;align-items:center;justify-content:center;color:var(--muted);font:600 12px var(--f-mono)}
+
+/* ---------- приватность ---------- */
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;list-style:none;margin:0;padding:0}
+.checks li{display:flex;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:15px;color:var(--ink2)}
+.checks li::before{content:"✓";flex:none;width:22px;height:22px;border-radius:50%;background:var(--good-soft);color:var(--good);display:grid;place-items:center;font-weight:700;font-size:13px}
+
+/* ---------- история ---------- */
+.chartcard h3{margin-bottom:2px}
+.chartcard .sub{color:var(--muted);font-size:13.5px}
+.bars{width:100%;height:auto;display:block;margin-top:12px}
+.bars text{font-family:var(--f-body);fill:var(--muted);font-size:12px}
+.bars .v{fill:var(--ink);font-weight:700;font-size:12.5px}
+.bars .grid{stroke:var(--line)}
+.bars rect.b{fill:var(--bar)}
+.bars rect.b.last{fill:var(--bar-last)}
+.log{position:relative;display:flex;flex-direction:column;gap:14px;padding-left:30px}
+.log::before{content:"";position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:var(--line)}
+.entry{position:relative}
+.entry::before{content:"";position:absolute;left:-27px;top:22px;width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--accent)}
+.entry.now::before{border-color:var(--signal)}
+.entry .hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.entry .ver{font:700 22px var(--f-display);font-variant-numeric:tabular-nums}
+.entry .name{font-weight:700;font-size:16px}
+.entry .date{font:500 12.5px var(--f-mono);color:var(--muted);margin-left:auto}
+.entry ul{margin:0;padding-left:18px;color:var(--ink2);font-size:15px;display:grid;gap:3px}
+.entry .tag{font:600 11px var(--f-mono);padding:2px 7px;border-radius:6px;background:var(--signal-soft);color:var(--signal)}
+
+/* ---------- дорожная карта ---------- */
+.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.lane{display:flex;flex-direction:column;gap:8px}
+.lane .lh{padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.lane .lh b{display:block;font:700 18px var(--f-display)}
+.lane .lh span{font-size:13px;color:var(--muted)}
+.lane.next .lh{border-color:var(--signal);background:var(--signal-soft)}
+.item{padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.item small{color:var(--muted);font-size:12.5px;line-height:1.4}
+.size{align-self:flex-start;font:600 11px var(--f-mono);padding:2px 7px;border-radius:6px;background:var(--accent-soft);color:var(--accent)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+
+/* ---------- приложения, вопросы ---------- */
+.apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.apps .card h3{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.apps .card p{font-size:15px;color:var(--ink2)}
+.st{font:600 11.5px var(--f-mono);padding:2px 8px;border-radius:6px;margin-left:auto}
+.st.ok{background:var(--good-soft);color:var(--good)}
+.st.plan{background:var(--signal-soft);color:var(--signal)}
+details.q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+details.q summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:10px}
+details.q summary::after{content:"+";color:var(--muted);font-weight:400}
+details.q[open] summary::after{content:"−"}
+details.q p{margin-top:8px;color:var(--ink2);font-size:15px;max-width:70ch}
+.faq{display:grid;gap:8px}
+footer{margin-top:60px;padding:24px 0;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font-size:14px}
+/* ---------- переключатель темы ---------- */
+.theme{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
+.theme button{border:0;background:none;width:34px;height:30px;border-radius:9px;cursor:pointer;color:var(--muted);font-size:15px;display:grid;place-items:center}
+.theme button:hover{color:var(--ink)}
+.theme button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.topbar .right{display:flex;gap:8px;align-items:center}
+@media (max-width:480px){.topbar .brand small{display:none}.topbar .brand b{font-size:13px}.theme button{width:30px}.topbar .btn{padding:9px 12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="toc">
+    <a class="brand" href="#top"><span class="mark">СА</span><span><b>Семейный ассистент</b><small>версия 1.7.2</small></span></a>
+    <ol id="toc">
+      <li><a href="#about">О проекте</a></li>
+      <li><a href="#features">Возможности</a></li>
+      <li><a href="#examples">Примеры</a></li>
+      <li><a href="#screens">Скриншоты</a></li>
+      <li><a href="#how">Как устроено</a></li>
+      <li><a href="#privacy">Данные и безопасность</a></li>
+      <li><a href="#changelog">История изменений</a></li>
+      <li><a href="#roadmap">Дорожная карта</a></li>
+      <li><a href="#apps">Приложения</a></li>
+      <li><a href="#faq">Вопросы</a></li>
+    </ol>
+    <div class="cta" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start"><div class="theme" role="group" aria-label="Тема оформления"><button data-t="system" title="Как в системе" aria-label="Как в системе">🖥</button><button data-t="light" title="Светлая" aria-label="Светлая">☀️</button><button data-t="dark" title="Тёмная" aria-label="Тёмная">🌙</button></div>
+      <a class="btn pri" href="https://assistant.saidov.ru/web/">Войти в панель →</a></div>
+  </aside>
+
+  <main id="top">
+    <div class="topbar"><a class="brand" href="#top"><span class="mark">СА</span><span><b>Семейный ассистент</b><small>версия 1.7.2</small></span></a>
+      <div class="right"><div class="theme" role="group" aria-label="Тема оформления"><button data-t="system" title="Как в системе" aria-label="Как в системе">🖥</button><button data-t="light" title="Светлая" aria-label="Светлая">☀️</button><button data-t="dark" title="Тёмная" aria-label="Тёмная">🌙</button></div><a class="btn pri" href="https://assistant.saidov.ru/web/">Панель</a></div></div>
+    <nav class="mnav" aria-label="Разделы">
+      <a href="#about">О проекте</a><a href="#features">Возможности</a><a href="#examples">Примеры</a><a href="#screens">Скриншоты</a>
+      <a href="#how">Как устроено</a><a href="#privacy">Данные</a><a href="#changelog">История</a><a href="#roadmap">Планы</a><a href="#apps">Приложения</a><a href="#faq">Вопросы</a>
+    </nav>
+
+    <div class="hero">
+      <div style="display:flex;flex-direction:column;gap:22px">
+        <span class="kicker">Личный проект · для всей семьи</span>
+        <h1>Пишете как человеку. <em>Ассистент</em> ведёт учёт.</h1>
+        <p class="lead">Траты, еда, дела, лекарства, счётчики, гараж, поездки и долги — одной фразой в Telegram, голосом, через Алису или в веб-панели. Без форм, таблиц и выбора категорий.</p>
+        <div class="row">
+          <a class="btn pri" href="#examples">Посмотреть примеры</a>
+          <a class="btn" href="#roadmap">Что будет дальше</a>
+        </div>
+        <div class="facts" aria-label="Проект в цифрах">
+          <div class="fact"><b>13</b><span>разделов хозяйства</span></div>
+          <div class="fact"><b>5</b><span>способов написать</span></div>
+          <div class="fact"><b>10</b><span>выпусков с октября</span></div>
+          <div class="fact"><b>8,6&nbsp;тыс.</b><span>строк кода ядра</span></div>
+        </div>
+      </div>
+      <div class="chat" aria-label="Пример переписки">
+        <div class="head"><span class="av">✦</span><div><b>Ассистент</b><small>отвечает за пару секунд</small></div></div>
+        <div class="msg me">Пятёрочка 1450 продукты</div>
+        <div class="msg bot">💾 Записал:
+➖ <b>1 450 ₽</b> 🛒 Продукты · Пятёрочка<div class="btns"><span>🏷 Категория</span><span>❌ Отменить</span></div></div>
+        <div class="msg me">съел тарелку борща и кусок хлеба</div>
+        <div class="msg bot">🍲 Обед: <b>Борщ со сметаной и хлеб</b> (~420 г)
+🔥 410 ккал · Б 14 · Ж 17 · У 48
+<b>За сегодня</b>: 1640 из 1900 ккал
+▰▰▰▰▰▰▰▰▱▱ 86%<div class="btns"><span>½ порции</span><span>×1.5</span><span>×2</span><span>❌ Отменить</span></div></div>
+        <div class="msg me">дал Диме в долг 5000 до 15 ноября</div>
+        <div class="msg bot">🤝 Записал: вам должны
+💚 <b>Дима</b>: 5 000 ₽ · до 15.11.2026
+⏰ Напомню в день срока.<div class="btns"><span>✅ Вернули всё</span><span>⏰ Через неделю</span></div></div>
+      </div>
+    </div>
+
+    <!-- 01 -->
+    <section id="about">
+      <span class="kicker">01 · О проекте</span>
+      <h2>Один помощник на всё домашнее хозяйство</h2>
+      <p class="text">Семейный ассистент — личный проект. Он живёт на своём сервере и помогает семье вести деньги, питание, дела и всё, что обычно теряется в заметках и напоминалках: сроки полисов, показания счётчиков, ТО мотоцикла, лекарства детей, кто кому сколько должен. Каждую фразу разбирает ИИ: он понимает, что вы имели в виду, и раскладывает запись по нужному разделу.</p>
+      <div class="principles">
+        <div class="card"><span class="n">принцип 1</span><h3>Одна фраза — одна запись</h3><p>«Заправил мото 1200» — это трата на топливо, привязанная к мотоциклу. Категорию и дату ассистент поставит сам.</p></div>
+        <div class="card"><span class="n">принцип 2</span><h3>Всё можно отменить</h3><p>Под каждой записью есть кнопка «Отменить», а отменённое можно вернуть. В боте достаточно написать «отмени последнюю трату».</p></div>
+        <div class="card"><span class="n">принцип 3</span><h3>Личное и общее</h3><p>Траты и покупки общие для семьи, а калории, лекарства и заметки у каждого свои. Владелец меняет это в настройках.</p></div>
+        <div class="card"><span class="n">принцип 4</span><h3>Напоминает сам</h3><p>Платёж через 3 дня, ОСАГО через месяц, пора менять масло, 20-е — время передать показания. Ночью молчит, если включены тихие часы.</p></div>
+      </div>
+      <div class="channels" aria-label="Каналы">
+        <span class="chip">💬 Telegram-бот</span><span class="chip">🎙 Голосовые</span><span class="chip">🗣 Яндекс Алиса</span>
+        <span class="chip">🌐 Веб-панель с графиками</span><span class="chip">📱 Android-приложение</span>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="features">
+      <span class="kicker">02 · Возможности</span>
+      <h2>Тринадцать разделов, один способ общения</h2>
+      <div class="features" id="featGrid"></div>
+    </section>
+
+    <!-- 03 -->
+    <section id="examples">
+      <span class="kicker">03 · Примеры</span>
+      <h2>Как это выглядит в переписке</h2>
+      <p class="text">Так отвечает ассистент — пример на демо-данных. Кнопки под ответом работают как в Telegram: исправить порцию, отметить оплату, перенести напоминание.</p>
+      <div class="features" id="exGrid"></div>
+    </section>
+
+    <!-- 04 -->
+    <section id="screens">
+      <span class="kicker">04 · Скриншоты</span>
+      <h2>Веб-панель и чат</h2>
+      <p class="text">Панель открывается по одноразовой ссылке из бота. На скриншотах — демо-семья «Алексей и Мария»: данные придуманы. Нажмите на картинку, чтобы увеличить.</p>
+      <div class="seg" role="tablist" aria-label="Устройство">
+        <button id="tDesk" class="on" role="tab" aria-selected="true">Компьютер</button>
+        <button id="tPhone" role="tab" aria-selected="false">Телефон</button>
+      </div>
+      <div class="shots" id="shots"></div>
+    </section>
+
+    <!-- 05 -->
+    <section id="how">
+      <span class="kicker">05 · Как устроено</span>
+      <h2>Каналы → ядро → база</h2>
+      <p class="text">Все каналы отправляют сообщение в одно ядро. Поэтому трата из Алисы видна в панели, а голосовое из приложения отменяется кнопкой в Telegram. Ядро и база работают в Docker на одном сервере; рядом — n8n для автоматизаций.</p>
+      <div class="arch">
+        <div class="col"><span class="lbl">Каналы</span>
+          <div class="node">💬 Telegram<small>текст, голос, фото, файлы</small></div>
+          <div class="node">🗣 Яндекс Алиса<small>навык «Семейный помощник»</small></div>
+          <div class="node">🌐 Веб-панель<small>графики, история, настройки</small></div>
+          <div class="node">✦ Чат в панели<small>как в Telegram, в браузере</small></div>
+          <div class="node">📱 Android<small>оболочка панели, «Поделиться»</small></div>
+        </div>
+        <div class="core"><span class="lbl">Ядро · Python, FastAPI</span><h3>Понимает фразу и раскладывает по разделам</h3>
+          <div class="mods"><span>brain</span><span>finance</span><span>nutrition</span><span>tasks</span><span>shopping</span><span>budgets</span><span>bills</span><span>bank</span><span>savings</span><span>garage</span><span>papers</span><span>meters</span><span>notes</span><span>meds</span><span>trips</span><span>debts</span><span>habits</span><span>undo</span><span>scope</span><span>prefs</span><span>digest</span><span>morning</span><span>analytics</span></div>
+          <div class="node">🗄 PostgreSQL 16<small>8 миграций, отдельная роль «только чтение» для вопросов к данным</small></div>
+          <div class="node">⏱ Фоновые задачи<small>напоминания, сводки, синхронизация — каждые 30 секунд</small></div>
+        </div>
+        <div class="col"><span class="lbl">Сервисы</span>
+          <div class="node">🧠 Claude<small>разбор фраз, фото, PDF-выписок</small></div>
+          <div class="node">🎧 Whisper (Groq)<small>голос в текст</small></div>
+          <div class="node">✅ TickTick<small>дела в обе стороны</small></div>
+          <div class="node">🌦 Open-Meteo<small>погода и маршрут поездки</small></div>
+          <div class="node">🔗 n8n<small>события и автоматизации</small></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="privacy">
+      <span class="kicker">06 · Данные и безопасность</span>
+      <h2>Данные семьи остаются у семьи</h2>
+      <ul class="checks">
+        <li>Всё хранится на своём сервере, а не в чужом облаке.</li>
+        <li>В панель входят по одноразовой ссылке из бота, без паролей.</li>
+        <li>На вопросы к данным ИИ отвечает с правами «только чтение» и видит только свою семью.</li>
+        <li>Номера документов, карт, пароли и ПИН-коды ассистент не сохраняет и отказывается записывать.</li>
+        <li>Личные разделы не видны другим членам семьи — ни в боте, ни в панели, ни в отчётах.</li>
+        <li>Каждую ночь делается копия базы; внешние зашифрованные копии в Яндекс Облаке — следующий шаг.</li>
+        <li>Дозы лекарств ассистент не советует: только напоминает и считает остаток.</li>
+        <li>Удалённое можно вернуть: записи помечаются отменёнными, а не стираются.</li>
+      </ul>
+    </section>
+
+    <!-- 07 -->
+    <section id="changelog">
+      <span class="kicker">07 · История изменений</span>
+      <h2>Десять выпусков</h2>
+      <div class="card chartcard">
+        <h3>Сколько умеет ассистент</h3>
+        <p class="sub">Число возможностей из списка изменений, нарастающим итогом по выпускам</p>
+        <svg class="bars" id="growth" role="img" aria-label="Рост числа возможностей по версиям"></svg>
+      </div>
+      <div class="log" id="log"></div>
+    </section>
+
+    <!-- 08 -->
+    <section id="roadmap">
+      <span class="kicker">08 · Дорожная карта</span>
+      <h2>Что дальше</h2>
+      <p class="text">Порядок выпусков согласован, сроки — по мере готовности. Каждый выпуск сначала проходит проверку на тестовой базе, потом ставится на сервер через Claude Code.</p>
+      <div class="legend"><span><i style="background:var(--signal-soft);border:1px solid var(--signal)"></i>следующий шаг</span><span><i style="background:var(--card);border:1px solid var(--line)"></i>в плане</span>
+        <span><span class="size">S</span>быстро</span><span><span class="size">M</span>средне</span><span><span class="size">L</span>много работы</span></div>
+      <div class="lanes" id="lanes"></div>
+    </section>
+
+    <!-- 09 -->
+    <section id="apps">
+      <span class="kicker">09 · Приложения</span>
+      <h2>На телефоне</h2>
+      <div class="apps">
+        <div class="card"><h3>📱 Android <span class="st ok">работает</span></h3>
+          <p>Приложение открывает панель и чат без адресной строки. Можно поделиться в него фото чека или PDF-выпиской из любого приложения и надиктовать голосовое. Обновлять его не нужно: новые возможности приходят с сервера.</p></div>
+        <div class="card"><h3>🍏 iPhone <span class="st plan">версии 1.8–1.9</span></h3>
+          <p>Панель станет веб-приложением на экране «Домой» с push-уведомлениями. «Быстрые команды» будут отправлять SMS банков и данные из «Здоровья». Отдельное приложение из App Store не планируется.</p></div>
+        <div class="card"><h3>⌚ Mi Fitness <span class="st plan">версия 1.9</span></h3>
+          <p>Шаги, сон, вес и пульс с браслета будут сами попадать в раздел «Здоровье» через Health Connect. Вручную вводить больше не понадобится.</p></div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="faq">
+      <span class="kicker">10 · Вопросы</span>
+      <h2>Коротко о главном</h2>
+      <div class="faq">
+        <details class="q"><summary>Можно подключить нашу семью?</summary><p>Пока ассистент работает для одной семьи. В версии 2.0 появятся два варианта: «коробка» — установка на свой сервер одной командой, и общий сервис по приглашению для знакомых.</p></details>
+        <details class="q"><summary>Сколько это стоит?</summary><p>Сервер — обычный недорогой VPS. Погода, бэкап в Яндекс в пределах 1 ГБ и Health Connect бесплатны. Платные только запросы к ИИ: для семьи это небольшие деньги в месяц.</p></details>
+        <details class="q"><summary>Что будет, если ИИ не понял фразу?</summary><p>Ассистент переспросит или предложит кнопки выбора. Неверную запись можно поправить кнопкой под ответом или отменить фразой «отмени последнюю трату».</p></details>
+        <details class="q"><summary>Подтягивает ли он данные из банков?</summary><p>Официального API для личных карт у банков пока нет. Сейчас работает импорт выписок Сбера (PDF) и Т-Банка (CSV) со сверкой. В версии 1.9 Android-приложение начнёт читать уведомления и SMS банков, и траты будут записываться сами.</p></details>
+        <details class="q"><summary>Где посмотреть подробную инструкцию?</summary><p>В архиве проекта есть README из 28 разделов: от первой установки до каждой команды бота. Для обновлений есть готовые задания для Claude Code.</p></details>
+      </div>
+    </section>
+
+    <footer><span>Семейный ассистент · личный проект · 2026</span>
+      <span><a href="https://assistant.saidov.ru/web/">Веб-панель</a> · вход по ссылке из бота <code>/web</code></span></footer>
+  </main>
+</div>
+
+<dialog id="zoom" aria-label="Скриншот"><button class="x" id="zx" aria-label="Закрыть">✕</button><img id="zimg" alt=""><p id="zcap"></p></dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- возможности ----------
+const FEATURES = [
+  ['💰', 'Деньги', 'Траты и доходы текстом, голосом, фото чека по позициям. Лимиты по категориям, отчёт за месяц.', ['Пятёрочка 1450 продукты', 'лимит на кафе 10000'], '1.0'],
+  ['🍽', 'Питание и КБЖУ', 'Калории и БЖУ по описанию или фото тарелки, дневная цель, рецепты из того, что есть дома.', ['съел тарелку борща', 'что приготовить из курицы на 600 ккал'], '1.0'],
+  ['📝', 'Дела', 'Задачи себе и членам семьи с напоминаниями, двусторонняя синхронизация с TickTick.', ['завтра в 10 позвонить в банк', 'Маше в субботу забрать посылку'], '1.0'],
+  ['🛒', 'Покупки', 'Общий список по отделам магазина. Чек сам вычёркивает купленное.', ['закончилось молоко', 'купить хлеб и яйца'], '1.1'],
+  ['🔎', 'Вопросы к данным', 'Спросите обычными словами — ИИ посчитает по базе и ответит.', ['сколько потратили на продукты в октябре?'], '1.1'],
+  ['📈', 'Привычки и здоровье', 'Вода, шаги, сон, вес с целями. Лекарства по расписанию с остатком упаковки.', ['выпил 2 стакана воды', 'витамин D в 9:00, в упаковке 60'], '1.2'],
+  ['💳', 'Платежи и выписки', 'Кредиты, ЖКХ, подписки с напоминаниями. Сверка выписок Сбера и Т-Банка.', ['кредит 15000 каждое 5 число', 'оплатил ЖКХ 6230'], '1.5'],
+  ['🎯', 'Накопления', 'Цели со сроком: ассистент считает, сколько откладывать в месяц.', ['копим на отпуск 150000 к июлю'], '1.5'],
+  ['🏍', 'Гараж', 'Пробег, регламент ТО, расход топлива на 100 км, сезонная резина и консервация мотоцикла.', ['пробег мото 23500', 'менял масло на 23500, 4500 р'], '1.5'],
+  ['🏠', 'Дом и документы', 'Сроки паспортов, полисов и гарантий, показания счётчиков к 25-му, семейные заметки.', ['ОСАГО на машину до 15.05.2027', 'холодная вода 123,456'], '1.5'],
+  ['🧳', 'Поездки', 'Бюджет поездки, траты по дням, список сборов для мотоцикла и погода по маршруту.', ['поездка на Алтай с 5 по 8 июля на мото, бюджет 30000'], '1.6'],
+  ['🤝', 'Долги', 'Кто кому должен, частичные возвраты, напоминания о сроке.', ['дал Пете в долг 5000 до 15 ноября', 'Петя вернул 2000'], '1.7'],
+  ['⚙️', 'Настройки', 'Тема, тихие часы, какие напоминания присылать, личные и общие разделы.', ['/settings'], '1.7'],
+];
+$('#featGrid').innerHTML = FEATURES.map(([ic, t, d, say, v]) => `<div class="card feat"><div class="t"><span class="ic">${ic}</span><h3>${esc(t)}</h3></div>
+  <p>${esc(d)}</p><div class="say">${say.map(s => `<code>${esc(s)}</code>`).join('')}</div><span class="since">с версии ${v}</span></div>`).join('');
+
+// ---------- примеры ----------
+const EXAMPLES = [
+  ['завтра в 10 позвонить в банк', '📝 Задача: <b>Позвонить в банк</b>\n📅 завтра в 10:00\n⏰ Напомню: 02.11 в 09:45', ['✅ Выполнено', '❌ Удалить']],
+  ['оплатил ЖКХ 6230', '✅ Оплачено: ЖКХ — 6 230 ₽\nЗаписал трату. Следующий платёж — 20.12.2026.', ['💳 Все платежи']],
+  ['пробег мото 23500', '🏍 Honda CB400: пробег 23 500 км\n\n🔴 Чистка и смазка цепи — просрочено на 200 км', ['✅ Чистка и смазка цепи']],
+  ['холодная вода 128,7', '🔢 Показания\n💧 Холодная вода кухня: <b>128,7</b> м³ · +5,2 с 20.10', []],
+  ['отмени последнюю трату', '🗑 Отменил: 🛒 Продукты · Пятёрочка −1 450 ₽ <i>(01.11 12:40)</i>', ['↩️ Вернуть', '🕘 Последние записи']],
+  ['сколько потратили на кафе в октябре?', '🍽 На кафе и рестораны в октябре ушло <b>19 618 ₽</b>, чаще всего — в кофейне.', []],
+];
+$('#exGrid').innerHTML = EXAMPLES.map(([q, a, b]) => `<div class="chat" style="max-width:none"><div class="msg me">${esc(q)}</div>
+  <div class="msg bot">${a}${b.length ? `<div class="btns">${b.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}</div></div>`).join('');
+
+// ---------- скриншоты ----------
+const DESK = [
+  ['home', 'Главная', 'расходы, калории, накопления, «Куда уходят деньги», ближайшие сроки, поездка'],
+  ['finance', 'Финансы', 'категории, расходы по дням, нарастающий итог против прошлого месяца'],
+  ['debts', 'Долги', 'кто кому должен, сколько вернули, сроки'],
+  ['trips', 'Поездки', 'бюджет по дням, сборы, погода по маршруту'],
+  ['health', 'Здоровье', 'лекарства на сегодня, вес, вода, шаги'],
+  ['house', 'Дом', 'документы и гарантии, счётчики с расходом'],
+  ['garage-dark', 'Гараж (тёмная тема)', 'пробег, регламент ТО, страховка'],
+  ['settings-dark', 'Настройки (тёмная тема)', 'тема, напоминания, тихие часы, личные и общие разделы'],
+];
+const PHONE = [
+  ['chat-phone', 'Чат', 'переписка как в Telegram, кнопки под ответами'],
+  ['home-dark-phone', 'Главная', 'на телефоне, тёмная тема'],
+  ['chat-dark-phone', 'Чат', 'тёмная тема'],
+];
+function shots(phone) {
+  const box = $('#shots'); box.className = 'shots' + (phone ? ' phone' : '');
+  box.innerHTML = (phone ? PHONE : DESK).map(([f, t, d]) => `<figure class="shot"><button data-f="${f}" data-c="${esc(t + ' — ' + d)}" aria-label="Увеличить: ${esc(t)}">
+    <img src="site/img/${f}.jpg" alt="${esc(t + ': ' + d)}" style="--ar:${phone ? '390/844' : '1280/880'}"></button>
+    <figcaption><b>${esc(t)}</b> — ${esc(d)}</figcaption></figure>`).join('');
+  box.querySelectorAll('button').forEach(b => b.onclick = () => {
+    $('#zimg').src = `site/img/${b.dataset.f}.jpg`; $('#zcap').textContent = b.dataset.c;
+    try { $('#zoom').showModal(); } catch (e) { $('#zoom').setAttribute('open', ''); } });
+}
+shots(false);
+[['#tDesk', false], ['#tPhone', true]].forEach(([id, ph]) => $(id).onclick = () => {
+  ['#tDesk', '#tPhone'].forEach(x => { const on = x === id; $(x).classList.toggle('on', on); $(x).setAttribute('aria-selected', on); }); shots(ph); });
+$('#zx').onclick = () => $('#zoom').close();
+$('#zoom').onclick = e => { if (e.target.id === 'zoom') $('#zoom').close(); };
+
+// ---------- история изменений ----------
+const LOG = [
+  ['1.7.2', 'Сайт проекта', '01.11.2026', ['Этот сайт: о проекте, примеры, скриншоты, история и планы', 'Подписи «ждём возврат» и «вернуть» в сроках долгов'], true],
+  ['1.7.1', 'Чат и Android', '01.11.2026', ['Чат с ассистентом прямо в веб-панели', 'Android-приложение: панель, «Поделиться», голосовые']],
+  ['1.7', 'Настройки и долги', '01.11.2026', ['Учёт долгов с напоминаниями о сроке', 'Настройки: тема, вкладки, напоминания, тихие часы, цели', 'Личные и общие разделы для каждого члена семьи']],
+  ['1.6', 'Поездки и новый дизайн', '31.10.2026', ['Режим поездки: бюджет, сборы, погода по маршруту', 'Новая главная с графиками и анимацией', 'Графики пробега и приёма лекарств']],
+  ['1.5', 'Хозяйство', '31.10.2026', ['Регулярные платежи с напоминаниями', 'Импорт выписок Сбера и Т-Банка', 'Накопления', 'Гараж и регламент ТО', 'Документы, полисы, гарантии', 'Счётчики', 'Семейные заметки', 'Лекарства по расписанию']],
+  ['1.4', 'Отмена', '31.10.2026', ['Отмена и возврат любой записи', 'Фраза «отмени последнюю операцию»', 'Вкладка «История» и команда /history']],
+  ['1.3', 'Связность', 'октябрь 2026', ['Кнопка «Панель» в боте', 'Копии действий из панели и Алисы в Telegram', 'Запасная модель ИИ при перегрузке']],
+  ['1.2', 'Панель и Алиса', 'октябрь 2026', ['Веб-панель с графиками', 'Яндекс Алиса', 'Утренняя сводка с погодой', 'Привычки: вода, шаги, вес, сон', 'Покупки по отделам магазина', 'Мониторинг сервера', 'Двусторонняя синхронизация TickTick']],
+  ['1.1', 'ИИ-модули', 'октябрь 2026', ['Вопросы к данным обычными словами', 'Недельный разбор с советами', 'Месячные лимиты', 'Чеки по позициям', 'Рецепты из того, что есть', 'Общий список покупок', 'Дела для членов семьи']],
+  ['1.0', 'Первый запуск', 'октябрь 2026', ['Telegram-бот и ядро в Docker', 'Траты и доходы текстом', 'Голосовые сообщения', 'Фото чека', 'КБЖУ по тексту и фото', 'Дела с напоминаниями и TickTick', 'Ночные копии базы']],
+];
+$('#log').innerHTML = LOG.map(([v, n, d, items, now]) => `<div class="entry${now ? ' now' : ''}"><div class="card">
+  <div class="hd"><span class="ver">${v}</span><span class="name">${esc(n)}</span>${now ? '<span class="tag">выходит сейчас</span>' : ''}<span class="date">${d}</span></div>
+  <ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div></div>`).join('');
+
+// нарастающий итог возможностей — одна серия, один цвет, подписи над столбцами
+(function growth() {
+  const data = [...LOG].reverse().map(([v, , , items]) => ({v, n: items.length}));
+  let acc = 0; data.forEach(d => d.total = (acc += d.n));
+  const W = 760, H = 250, L = 34, R = 10, T = 22, B = 30, max = Math.ceil(acc / 10) * 10;
+  const bw = (W - L - R) / data.length, y = v => T + (H - T - B) * (1 - v / max);
+  let s = '';
+  for (let g = 0; g <= max; g += 10) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
+  data.forEach((d, i) => {
+    const x = L + i * bw + bw * .18, w = bw * .64, last = i === data.length - 1;
+    s += `<rect class="b${last ? ' last' : ''}" x="${x}" y="${y(d.total)}" width="${w}" height="${y(0) - y(d.total)}" rx="4"><title>${d.v}: ${d.total} (+${d.n})</title></rect>`;
+    s += `<text class="v" x="${x + w / 2}" y="${y(d.total) - 6}" text-anchor="middle">${d.total}</text>`;
+    s += `<text x="${x + w / 2}" y="${H - 10}" text-anchor="middle">${d.v}</text>`;
+  });
+  const svg = $('#growth'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = s;
+})();
+
+// ---------- дорожная карта ----------
+const LANES = [
+  ['Сейчас', 'отдельно от версий', true, [['Бэкап в Яндекс Облако', 'зашифрованные копии, проверка восстановления раз в месяц', 'S']]],
+  ['1.8', 'сервер, без нового APK', false, [
+    ['Микрофон «держи и говори»', 'как в Telegram: отпустил — отправилось', 'S'],
+    ['GitHub и автотесты', 'код и база знаний в репозитории, обновление через git', 'S'],
+    ['Скидочные карты', 'штрих-коды и QR, крупно на кассе', 'S'],
+    ['Вкладка «Интеграции»', 'каждый сам подключает свои сервисы', 'M'],
+    ['Веб-приложение для iPhone', 'значок на экране «Домой», push-уведомления', 'M'],
+    ['Статус бэкапа в настройках', 'когда была последняя копия', 'S']]],
+  ['1.9', 'новый APK и «Быстрые команды»', false, [
+    ['Здоровье из Mi Fitness', 'через Health Connect: шаги, сон, вес, пульс', 'M'],
+    ['Уведомления и SMS банков', 'траты и остатки по картам сами', 'M'],
+    ['Баланс мобильной связи', 'USSD и SMS оператора, напоминание об оплате', 'M'],
+    ['«Быстрые команды» для iPhone', 'SMS банков и «Здоровье» без приложения', 'S']]],
+  ['1.10', 'почта', false, [['Gmail', 'важные письма в утреннюю сводку, кнопки «в дела» и «в платежи»', 'M']]],
+  ['2.0', 'для других семей', false, [
+    ['«Коробка»', 'установка на свой сервер одной командой и мастер настройки', 'L'],
+    ['Общий сервис', 'приглашения, лимиты ИИ, страница администратора', 'L']]],
+];
+$('#lanes').innerHTML = LANES.map(([v, d, next, items]) => `<div class="lane${next ? ' next' : ''}"><div class="lh"><b>${esc(v)}</b><span>${esc(d)}</span></div>
+  ${items.map(([t, s, z]) => `<div class="item"><span class="size">${z}</span><b>${esc(t)}</b><small>${esc(s)}</small></div>`).join('')}</div>`).join('');
+
+// ---------- оглавление: подсветка текущего раздела ----------
+const links = [...document.querySelectorAll('#toc a')];
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }),
+  {rootMargin: '-40% 0px -55% 0px'});
+document.querySelectorAll('main section').forEach(s => io.observe(s));
+
+// ---------- одна оживлённая деталь: ответы в чате по очереди «вспыхивают» ----------
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const bots = [...document.querySelectorAll('.hero .msg.bot')]; let i = 0;
+  setInterval(() => { bots.forEach(b => b.classList.remove('hl')); void document.body.offsetWidth; bots[i % bots.length].classList.add('hl'); i++; }, 2600);
+}
+// ---------- переключатель темы (запоминается на этом устройстве) ----------
+function setTheme(t, save) {
+  const r = document.documentElement;
+  if (t === 'light' || t === 'dark') r.dataset.theme = t; else delete r.dataset.theme;
+  document.querySelectorAll('.theme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === (t || 'system'))));
+  if (save) try { localStorage.setItem('site-theme', t); } catch (e) {}
+}
+setTheme(document.documentElement.dataset.theme || 'system', false);
+document.querySelectorAll('.theme button').forEach(b => b.onclick = () => setTheme(b.dataset.t, true));
+</script>
+</body>
+</html>

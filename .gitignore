@@ -1,0 +1,11 @@
+# Секреты и данные сервера — никогда не в репозиторий
+.env
+.env.*
+!.env.example
+backups/
+state/
+*.sql.gz
+# Python
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,7 @@
+# Вставить ВНУТРЬ блока assistant.saidov.ru { ... } в /opt/n8n/Caddyfile,
+# первой строкой после открывающей скобки. Нужно, чтобы ссылки https://assistant.saidov.ru/web...
+# (в том числе ссылка входа из бота) открывались сразу в приложении «Ассистент».
+	handle /.well-known/assetlinks.json {
+		header Content-Type application/json
+		respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"ru.saidov.assistant","sha256_cert_fingerprints":["19:68:0A:6C:59:08:EB:50:45:31:26:CA:71:4E:1A:13:F2:92:64:B4:09:43:D1:3F:28:A4:D1:F2:37:61:66:B9"]}}]` 200
+	}

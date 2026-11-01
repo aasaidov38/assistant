@@ -1,0 +1,175 @@
+{
+  "name": "Ассистент: события и недельный отчёт",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Связка n8n и ассистента\n\n**Верхняя ветка** принимает события от ассистента (новая трата, еда, задача). Адрес вебхука (Production URL) вставьте в `.env` ассистента как `N8N_WEBHOOK_URL`. В узле «Ваша логика» можно делать что угодно: писать в Google Sheets, слать уведомления, считать лимиты.\n\n**Нижняя ветка** каждое воскресенье в 20:00 берёт траты за 7 дней у ассистента и присылает отчёт в Telegram через бота-ассистента.\n\nВ узлах HTTP Request выберите учётные данные **Assistant API** (Header Auth: имя `X-API-Key`, значение = `CORE_API_KEY` из `.env`).",
+        "height": 400,
+        "width": 520
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -440
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000001",
+      "name": "Инструкция"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assistant-events",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000002",
+      "name": "События ассистента",
+      "webhookId": "5b0c7a7e-1d2b-4c55-9a77-2f4f2f6b0a11"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Сюда приходят события ассистента.\n// $json.body.type: transaction.created | transaction.updated | transaction.deleted |\n//   transaction.group_deleted | meal.created | meal.updated | meal.deleted |\n//   task.created | task.done | task.deleted\n// $json.body.payload: данные записи\n\nconst ev = $json.body || {};\n\n// Пример: отметить крупную трату (дальше можно отправить уведомление)\nconst big = ev.type === 'transaction.created' && ev.payload?.kind === 'expense'\n  && Number(ev.payload?.amount) >= 10000;\n\nreturn [{ json: { type: ev.type, big, payload: ev.payload } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000003",
+      "name": "Ваша логика"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        260
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000004",
+      "name": "Воскресенье 20:00"
+    },
+    {
+      "parameters": {
+        "url": "=http://assistant-core:8000/v1/transactions?date_from={{ $now.minus({ days: 6 }).toFormat('yyyy-MM-dd') }}&date_to={{ $now.toFormat('yyyy-MM-dd') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        260
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000005",
+      "name": "Траты за неделю",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Собираем текст отчёта из списка операций\nconst rows = $input.all().map(i => i.json).filter(r => r.amount !== undefined);\nconst fmt = (v) => Math.round(v).toLocaleString('ru-RU') + ' ₽';\nlet exp = 0, inc = 0;\nconst byCat = {};\nfor (const r of rows) {\n  const a = Number(r.amount);\n  if (r.kind === 'income') { inc += a; continue; }\n  exp += a;\n  byCat[r.category] = (byCat[r.category] || 0) + a;\n}\nconst top = Object.entries(byCat).sort((a, b) => b[1] - a[1])\n  .map(([c, v]) => `• ${c}: ${fmt(v)}`).join('\\n');\nconst text = `📅 <b>Итоги недели</b>\\n\\nРасходы: <b>${fmt(exp)}</b>\\nДоходы: <b>${fmt(inc)}</b>\\n\\n${top || 'Трат не было 🎉'}`;\nreturn [{ json: { text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        260
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000006",
+      "name": "Текст отчёта"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://assistant-core:8000/v1/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        260
+      ],
+      "id": "a1f3c0de-0000-4000-8000-000000000007",
+      "name": "Отправить семье"
+    }
+  ],
+  "connections": {
+    "События ассистента": {
+      "main": [
+        [
+          {
+            "node": "Ваша логика",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Воскресенье 20:00": {
+      "main": [
+        [
+          {
+            "node": "Траты за неделю",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Траты за неделю": {
+      "main": [
+        [
+          {
+            "node": "Текст отчёта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Текст отчёта": {
+      "main": [
+        [
+          {
+            "node": "Отправить семье",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
