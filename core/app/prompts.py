@@ -57,6 +57,10 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
   borrowed — взяли мы, мы должны. Это НЕ трата и НЕ доход.
 - "debt_repay": возврат долга («Петя вернул 2000», «Иван отдал долг» → amount null = весь, «вернул маме 5000»,
   «отдал Ивану всё»). direction: lent — вернули нам; borrowed — вернули мы; null — если непонятно.
+- "card_add": сохранить скидочную или клубную карту магазина («карта Пятёрочки 2775 0123 4567 5», «карта Ленты
+  номер 7799 1234 5678», «добавь карту Летуаль 1234567»). Номер переписывай точно, как в сообщении.
+  Номер БАНКОВСКОЙ карты не сохраняй никогда: это "question", вежливо откажи.
+- "card_show": показать карту лояльности на кассе («покажи карту Ленты», «карта Пятёрочки», «дай карту Магнита»).
 - "undo": отменить или удалить уже сделанную запись: трату, доход, чек, еду, показатель, дело или покупку
   («отмени последнюю трату», «удали кофе, я его не пил», «убери задачу позвонить в банк», «вес записал неправильно,
   удали», «отмени вчерашний обед»). Не путать с budget («убери лимит») и metric_goal («убери цель»).
@@ -64,7 +68,7 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
 
 Формат:
 {{
-  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|trip|trip_items|debt|debt_repay|question",
+  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|trip|trip_items|debt|debt_repay|card_add|card_show|question",
   "transactions": [
     {{"kind": "expense|income", "amount": 1450.0, "category": "точное название из списка",
       "merchant": "магазин или null", "note": "коротко или null", "date": "YYYY-MM-DD",
@@ -113,7 +117,10 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
   "debt": {{"direction": "lent|borrowed", "person": "кто: Петя, мама", "amount": 5000, "due": "YYYY-MM-DD или null",
            "note": "коротко или null"}},
   "debt_repay": {{"direction": "lent|borrowed|null", "person": "кто", "amount": "сумма или null, если весь долг"}},
-  "undo": {{"what": "finance|meal|metric|task|shopping|savings|garage|paper|meter|note|debt|any", "metric": "water|steps|weight|sleep или null",
+  "card_add": {{"store": "магазин в именительном падеже: Лента, Пятёрочка", "number": "номер как в сообщении",
+               "format": "ean13|code128|qr|text или null"}},
+  "card_show": {{"store": "магазин или null, если просят все карты"}},
+  "undo": {{"what": "finance|meal|metric|task|shopping|savings|garage|paper|meter|note|debt|card|any", "metric": "water|steps|weight|sleep или null",
            "query": "ключевые слова записи, по которым её найти (например «кофе», «Пятёрочка», «позвонить в банк»), или null"}},
   "answer": "только для question"
 }}
@@ -176,6 +183,12 @@ PHOTO_PARSER = """Ты семейный ассистент. На фото кас
 Если это СЧЁТЧИК воды, электричества, газа или тепла:
 {{"type": "meter", "kind": "cold_water|hot_water|electricity|gas|heat|other", "value": 123.456}}
 Синий корпус или синяя метка — обычно холодная вода, красный — горячая. Красные цифры после запятой — дробная часть.
+
+Если это СКИДОЧНАЯ или КЛУБНАЯ карта магазина (пластик или экран приложения со штрихкодом или QR):
+{{"type": "card", "store": "магазин в именительном падеже", "number": "цифры под штрихкодом точно, без пробелов",
+  "format": "ean13|ean8|code128|qr|text"}}
+13 цифр под полосками — обычно ean13. БАНКОВСКАЯ карта (Visa, Мир, Mastercard, 16 цифр, срок, имя) — это НЕ "card":
+верни {{"type": "other", "description": "банковская карта — номера не сохраняю"}} и номер не выписывай.
 
 Если ничего из этого: {{"type": "other", "description": "что на фото, одной фразой"}}"""
 

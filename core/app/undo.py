@@ -20,14 +20,14 @@ from .util import esc, now, today
 
 TYPES = {"finance": "💰 Деньги", "meal": "🍽 Питание", "metric": "📈 Привычки",
          "task": "📝 Дела", "shopping": "🛒 Покупки", "savings": "🎯 Накопления", "garage": "🏍 Гараж",
-         "paper": "📄 Документы", "meter": "🔢 Счётчики", "note": "🗒 Заметки", "debt": "🤝 Долги"}
+         "paper": "📄 Документы", "meter": "🔢 Счётчики", "note": "🗒 Заметки", "debt": "🤝 Долги", "card": "💳 Карты"}
 _PREFIX_TYPE = {"t": "finance", "g": "finance", "m": "meal", "h": "metric", "k": "task", "s": "shopping",
                 "v": "savings", "o": "garage", "l": "garage", "d": "paper", "r": "meter", "n": "note",
-                "e": "debt", "p": "debt"}
+                "e": "debt", "p": "debt", "c": "card"}
 # К какому разделу (scope.SECTIONS) относится тип записи: в личном разделе чужие записи не видны
 TYPE_SECTION = {"finance": "finance", "meal": "nutrition", "metric": "habits", "shopping": "shopping", "savings": "savings",
-                "garage": "garage", "paper": "papers", "meter": "meters", "note": "notes", "debt": "debts"}
-REF_RE = re.compile(r"^(?:[tmhksvoldrnep]\.\d{1,18}|g\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
+                "garage": "garage", "paper": "papers", "meter": "meters", "note": "notes", "debt": "debts", "card": "cards"}
+REF_RE = re.compile(r"^(?:[tmhksvoldrnepc]\.\d{1,18}|g\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
 
 # Простые записи версии 1.5: (таблица с алиасом x, join, поле семьи, поле автора, заголовок SQL, значение SQL)
 SIMPLE = {
@@ -48,10 +48,11 @@ SIMPLE = {
     "p": ("debt_moves x JOIN debts g ON g.id=x.debt_id", "g.family_id", "x.user_id",
           "'🤝 ' || g.person || CASE x.kind WHEN 'repay' THEN ': возврат' WHEN 'add' THEN ': добавили к долгу'"
           " ELSE ': остаток списан' END", "x.amount", "money"),
+    "c": ("loyalty_cards x", "x.family_id", "x.user_id", "'💳 Карта: ' || x.store", "NULL::text", "none"),
 }
 _SIMPLE_TABLE = {"v": "savings_moves", "o": "odometer", "l": "service_log", "d": "papers", "r": "meter_readings",
                  "n": "family_notes",
-                 "e": "debts", "p": "debt_moves"}
+                 "e": "debts", "p": "debt_moves", "c": "loyalty_cards"}
 LOOKBACK_DAYS = 60          # «отмени последнюю…» ищет среди записей за этот срок
 
 
@@ -217,7 +218,7 @@ def _simple_fetch(*prefixes):
 
 _FETCH = {"finance": _finance, "meal": _meals, "metric": _metrics, "task": _tasks, "shopping": _shopping,
           "savings": _simple_fetch("v"), "garage": _simple_fetch("o", "l"), "paper": _simple_fetch("d"),
-          "meter": _simple_fetch("r"), "note": _simple_fetch("n"), "debt": _simple_fetch("e", "p")}
+          "meter": _simple_fetch("r"), "note": _simple_fetch("n"), "debt": _simple_fetch("e", "p"), "card": _simple_fetch("c")}
 
 
 async def history(family_id: int, *, user_id: int | None = None, types: list[str] | None = None,

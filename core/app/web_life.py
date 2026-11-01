@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import release
+from . import cards, release
 from . import bank, bills, db, debts, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
 from .config import get_settings
 from .schemas import Reply
@@ -679,6 +679,39 @@ async def debts_due(did: int, body: dict, user: users.User = Depends(current_use
     due = parse_date(body.get("due"))
     await db.get_pool().execute("UPDATE debts SET due_on=$2, reminded='{}', snooze_until=NULL WHERE id=$1", did, due)
     return {"text": f"Срок: {due:%d.%m.%Y}" if due else "Срок убран"}
+
+
+# ---------- 1.8. Карты лояльности ----------
+
+class CardIn(BaseModel):
+    store: str
+    number: str
+    format: str | None = None
+    note: str | None = None
+
+
+@router.get("/web/api/cards")
+async def cards_list(user: users.User = Depends(current_user)):
+    cs = [{**c, "ref": f"c.{c['id']}", "mine": c["user_id"] == user.id} for c in await cards.cards(user.family_id)]
+    return jsonable({"cards": cs, "personal": scope.is_personal("cards"),
+                     "formats": cards.FORMAT_NAMES})
+
+
+@router.post("/web/api/cards")
+async def cards_add(body: CardIn, user: users.User = Depends(current_user)):
+    r = await cards.add(user, body.model_dump(), source="web")
+    ok = r.text.startswith("💳 Сохранил")
+    if ok:
+        await _mirror(user, r.text)
+    return {"ok": ok, "text": r.text}
+
+
+@router.post("/web/api/cards/{cid}/used")
+async def cards_used(cid: int, user: users.User = Depends(current_user)):
+    if not await cards.cards(user.family_id, cid):
+        raise HTTPException(404, "Карты нет")
+    await cards.mark_used(user, cid)
+    return {"ok": True}
 
 
 # ---------- 1.7. Настройки ----------

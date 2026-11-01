@@ -145,6 +145,8 @@ async def main():
         BotCommand(command="meters", description="Счётчики"),
         BotCommand(command="notes", description="Заметки"),
         BotCommand(command="debts", description="Долги: кто кому должен"),
+        BotCommand(command="cards", description="Карты лояльности: штрихкод на кассе"),
+        BotCommand(command="version", description="Версия, обновления, резервные копии"),
         BotCommand(command="settings", description="Настройки и разделы"),
         BotCommand(command="history", description="Последние записи: отменить или вернуть"),
         BotCommand(command="undo", description="Отменить последнюю запись"),

@@ -10,7 +10,7 @@ import base64
 import logging
 import re
 
-from . import (ai, alice, analytics, bank, bills, budgets, debts, digest, finance, garage, habits, meds, meters, morning,
+from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, finance, garage, habits, meds, meters, morning,
                notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, tasks, ticktick, trips, undo, users, web)
 from .config import get_settings
 from .prompts import PHOTO_PARSER, TEXT_PARSER
@@ -85,6 +85,10 @@ HELP = """🤖 <b>Личный ассистент</b>
 🤝 <b>Долги</b>
 <code>дал Пете в долг 5000 до 15 ноября</code> · <code>занял у Ивана 3000</code> · <code>Петя вернул 2000</code> · /debts
 
+💳 <b>Карты лояльности</b>
+<code>карта Пятёрочки 2775 0123 4567 5</code> · фото карты · <code>покажи карту Ленты</code> · /cards
+
+🏷 /version: версия, обновления и резервные копии
 ⚙️ /settings: тема, вкладки, уведомления, тихие часы, личные и общие разделы (в веб-панели)
 🌐 /web: вход в веб-панель с графиками (ссылка от бота)
 🎙 /alice: привязать Яндекс Алису
@@ -133,7 +137,7 @@ async def handle_action(act: Action) -> Reply:
                "h": habits.handle_action, "w": web.handle_action, "u": undo.handle_action,
                "b": bills.handle_action, "i": bank.handle_action, "v": savings.handle_action,
                "o": garage.handle_action, "d": papers.handle_action, "r": meters.handle_action,
-               "x": meds.handle_action, "j": trips.handle_action, "e": debts.handle_action,
+               "x": meds.handle_action, "j": trips.handle_action, "e": debts.handle_action, "c": cards.handle_action,
                "y": release.handle_action}.get(parts[0])
     if not handler or len(parts) < 3:
         return Reply(text="Кнопка устарела.")
@@ -199,6 +203,8 @@ async def handle_text(user: users.User, text: str, source: str, header: str = ""
         return await trips.show(user)
     if cmd in ("/debts", "долги", "кто должен", "кто мне должен"):
         return await debts.list_reply(user)
+    if cmd in ("/cards", "карты", "скидочные карты", "карты лояльности"):
+        return await cards.list_reply(user)
     if cmd in ("/version", "версия", "/update", "обновление"):
         return await release.version_reply(user)
     if cmd in ("/settings", "настройки"):
@@ -315,6 +321,9 @@ async def _context(user: users.User) -> str:
     tr = await trips.current(user.family_id)
     if tr:
         parts.append(f"поездка: {tr['title']} {tr['start_on']}–{tr['end_on']}")
+    cs = await cards.cards(user.family_id)
+    if cs:
+        parts.append("карты лояльности: " + ", ".join(c["store"] for c in cs[:20]))
     ds = await debts.debts(user.family_id)
     if ds:
         parts.append("долги: " + ", ".join(f"{x['person']} ({'нам должны' if x['direction'] == 'lent' else 'мы должны'})"
@@ -365,6 +374,10 @@ async def _life_intent(user: users.User, intent: str, data: dict, text: str) -> 
         return await debts.create(user, d)
     if intent == "debt_repay":
         return await debts.repay(user, d)
+    if intent == "card_add":
+        return await cards.add(user, d)
+    if intent == "card_show":
+        return await cards.show(user, d.get("store"))
     if intent == "med_add":
         return await meds.add(user, d)
     if intent == "med_taken":
@@ -408,6 +421,8 @@ async def handle_photo(user: users.User, b64: str, mime: str, caption: str) -> R
         att = await papers.save_attachment(user.family_id, base64.b64decode(b64), mime)
         return await meters.reading(user, [{"meter": caption or None, "kind": data.get("kind"), "value": data.get("value")}],
                                     attachment_id=att)
+    if kind == "card":
+        return await cards.add(user, {**data, "store": data.get("store") or caption}, source="photo")
     if kind == "food":
         meal = await nutrition.save(user, data, source="photo")
         head = "📸 Оценка по фото, примерная" + (" (уверенность низкая)" if data.get("confidence") == "low" else "")

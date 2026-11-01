@@ -10,6 +10,7 @@ try { const u = JSON.parse(localStorage.getItem('ui') || '{}');
   if (u.theme === 'light' || u.theme === 'dark') document.documentElement.dataset.theme = u.theme;
   if (u.animations === false) document.documentElement.classList.add('noanim'); } catch (e) {}</script>
 <script src="/web/static/chart.umd.js"></script>
+<script src="/web/static/qrcode.js" defer></script>
 <style>
 /* ---------- Токены: цвета, тени, скругления. Палитра графиков — проверенная на дальтонизм (dataviz) ---------- */
 :root{color-scheme:light;
@@ -237,6 +238,22 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
 .debt .nm{font-weight:650;font-size:15.5px}.debt .bal{margin-left:auto;white-space:nowrap;font-size:20px;font-weight:750;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .debt .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}.debt .acts input{width:110px;padding:5px 9px}.debt .acts input[type=date]{width:auto}
 @media (max-width:560px){#debts .kpis .kpi:last-child{grid-column:1/-1}.debt .bal{font-size:17px}}
+.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+@media (max-width:560px){.lcard{padding:11px;border-radius:13px}.lcard .st{font-size:15px}.lcard .no{font-size:11.5px}}
+.lcard{position:relative;aspect-ratio:1.586;border-radius:16px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;
+  border:0;text-align:left;font:inherit;color:#26303d;background:linear-gradient(135deg,hsl(var(--h) 70% 86%),hsl(calc(var(--h) + 35) 65% 78%));
+  box-shadow:0 2px 10px rgba(30,40,60,.08);transition:transform .15s}
+.lcard:hover{transform:translateY(-2px)}.lcard .st{font-weight:750;font-size:17px;line-height:1.15;word-break:break-word}
+.lcard .no{font-size:12.5px;opacity:.75;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard .ft{display:flex;justify-content:space-between;align-items:flex-end;gap:6px}.lcard .ft span{font-size:11.5px;opacity:.7}
+.lcard .x{position:absolute;top:6px;right:6px;border:0;background:rgba(255,255,255,.55);border-radius:8px;width:26px;height:26px;cursor:pointer;color:#26303d;opacity:0;transition:opacity .15s}
+.lcard:hover .x,.lcard:focus-within .x{opacity:1}@media (hover:none){.lcard .x{opacity:.8}}
+.lcard.add{background:none;border:2px dashed var(--line);color:var(--muted);align-items:center;justify-content:center;box-shadow:none;font-weight:600}
+#cardFull{position:fixed;inset:0;z-index:90;background:#fff;color:#111;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center}
+#cardFull.on{display:flex}#cardFull .st{font-size:24px;font-weight:750}#cardFull .code{width:min(92vw,560px);background:#fff;padding:8px}
+#cardFull .code svg{width:100%;height:auto;display:block}#cardFull .code.qr{width:min(78vw,340px)}
+#cardFull .no{font-size:22px;letter-spacing:.08em;font-variant-numeric:tabular-nums;word-break:break-all}
+#cardFull .hint{color:#667;font-size:13px}#cardFull button{border:1px solid #ccd;background:#fff;color:#111;border-radius:12px;padding:10px 22px;font:inherit;cursor:pointer}
 .debt .mv{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 12px}
 .debt .mv span{display:inline-flex;gap:4px;align-items:center}.debt .mv button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 2px}
 .debt.closed{opacity:.6}
@@ -255,7 +272,7 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
   <nav id="tabs">
     <button data-t="home" class="on">🏠 Главная</button><button data-t="fin">💰 Финансы</button><button data-t="food">🍽 Питание</button>
     <button data-t="hab">📈 Здоровье</button><button data-t="tasks">📝 Дела</button>
-    <button data-t="shop">🛒 Покупки</button><button data-t="house">🏠 Дом</button><button data-t="garage">🏍 Гараж</button><button data-t="trips">🧳 Поездки</button><button data-t="debts">🤝 Долги</button><button data-t="hist">🕘 История</button><a class="navlink" href="/web/chat" title="Написать ассистенту, как в Telegram">💬 Чат</a><button data-t="ask">🔎 Спросить</button><button data-t="set">⚙️ Настройки</button>
+    <button data-t="shop">🛒 Покупки</button><button data-t="house">🏠 Дом</button><button data-t="garage">🏍 Гараж</button><button data-t="trips">🧳 Поездки</button><button data-t="debts">🤝 Долги</button><button data-t="cards">💳 Карты</button><button data-t="hist">🕘 История</button><a class="navlink" href="/web/chat" title="Написать ассистенту, как в Telegram">💬 Чат</a><button data-t="ask">🔎 Спросить</button><button data-t="set">⚙️ Настройки</button>
   </nav>
 </header>
 <main>
@@ -448,6 +465,28 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
   </div>
 </section>
 
+<section id="cards">
+  <div class="card"><h3>💳 Карты лояльности</h3>
+    <div class="muted" id="cScope" style="font-size:13px;margin-top:-6px;margin-bottom:12px"></div>
+    <div class="lcards" id="cardList"></div>
+    <details class="add" id="cardAdd"><summary>➕ Добавить карту</summary><form id="cardForm" class="fgrid">
+      <input name="store" placeholder="Магазин: Лента, Пятёрочка…" required maxlength="80">
+      <input name="number" placeholder="Номер под штрихкодом" required maxlength="300" autocomplete="off">
+      <select name="format"><option value="">Вид кода: определить сам</option><option value="ean13">Штрихкод EAN-13 (13 цифр)</option>
+        <option value="code128">Штрихкод (буквы и цифры)</option><option value="qr">QR-код</option><option value="text">Только номер</option></select>
+      <input name="note" placeholder="Заметка: чья карта, скидка (необязательно)" maxlength="120">
+      <div class="full" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn" id="cardScan">📷 Сканировать штрихкод</button>
+        <span class="muted" style="font-size:12.5px" id="cardScanNote"></span>
+        <input type="file" accept="image/*" capture="environment" id="cardScanFile" hidden></div>
+      <div class="muted full" style="font-size:12px">Только скидочные и клубные карты. Номера банковских карт ассистент не хранит.</div>
+      <button class="btn pri full">Сохранить</button></form></details>
+    <div class="muted" style="font-size:12px;margin-top:8px">В боте: <code>карта Пятёрочки 2775 0123 4567 5</code> · фото карты · <code>покажи карту Ленты</code> · /cards</div>
+  </div>
+</section>
+<div id="cardFull" role="dialog" aria-modal="true"><div class="st" id="cfStore"></div><div class="code" id="cfCode"></div>
+  <div class="no" id="cfNo"></div><div class="hint" id="cfHint">Сделайте экран ярче, если касса не считывает</div><button id="cfClose">Закрыть</button></div>
+
 <section id="set">
   <div class="grid g2">
     <div class="card"><h3>🎨 Оформление <span class="saved" data-saved>✓ Сохранено</span></h3>
@@ -576,7 +615,7 @@ $$('#tabs button').forEach(b => b.onclick = () => {
   Promise.resolve(load(b.dataset.t)).finally(() => animateIn(b.dataset.t));
 });
 function load(t) { return ({home: loadHome, fin: loadFin, food: loadFood, hab: loadHab, tasks: loadTasks, shop: loadShop, hist: loadHist,
-  house: loadHouse, garage: loadGarage, trips: loadTrips, debts: loadDebts, set: loadSettings, ask: () => {}})[t](); }
+  house: loadHouse, garage: loadGarage, trips: loadTrips, debts: loadDebts, cards: loadCards, set: loadSettings, ask: () => {}})[t](); }
 const formData = f => Object.fromEntries([...new FormData(f)].map(([k, v]) => [k, v === '' ? null : v]));
 const dmy = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '';
 const pill = (txt, cls) => `<span class="pill ${cls || ''}">${esc(txt)}</span>`;
@@ -1154,6 +1193,105 @@ async function loadDebts() {
 $('#dClosed').onchange = () => loadDebts();
 onForm('#debtForm', async d => { const r = await post('debts', {...d, amount: +d.amount}); toast(r.text.split('\n')[0]); loadDebts(); });
 
+// ---------- карты лояльности (1.8) ----------
+// Штрихкоды рисуем сами (EAN-13, EAN-8, Code 128), QR — библиотекой qrcode.js
+const BC = (() => {
+  const C = '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112'.split(' ');
+  const L = ['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+  const G = ['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'];
+  const R = ['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'];
+  const P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
+  function ean(d) {
+    if (d.length === 13) { let s = '101'; for (let i = 1; i < 7; i++) s += (P[+d[0]][i - 1] === 'L' ? L : G)[+d[i]];
+      s += '01010'; for (let i = 7; i < 13; i++) s += R[+d[i]]; return s + '101'; }
+    let s = '101'; for (let i = 0; i < 4; i++) s += L[+d[i]]; s += '01010'; for (let i = 4; i < 8; i++) s += R[+d[i]]; return s + '101';
+  }
+  function c128vals(t) {
+    const n = t.length, run = i => { let k = i; while (k < n && t[k] >= '0' && t[k] <= '9') k++; return k - i; };
+    let set = run(0) >= 4 ? 'C' : 'B', i = 0; const v = [set === 'C' ? 105 : 104];
+    if (set === 'C' && run(0) % 2) { v[0] = 104; set = 'B'; v.push(t.charCodeAt(0) - 32); i = 1; v.push(99); set = 'C'; }
+    while (i < n) {
+      if (set === 'C') { if (run(i) >= 2) { v.push(+t.substr(i, 2)); i += 2; continue; } v.push(100); set = 'B'; continue; }
+      const r = run(i);
+      if (r >= 6 || (r >= 4 && i + r === n)) { if (r % 2) { v.push(t.charCodeAt(i) - 32); i++; } v.push(99); set = 'C'; continue; }
+      v.push(t.charCodeAt(i) - 32); i++;
+    }
+    let sum = v[0]; for (let k = 1; k < v.length; k++) sum += v[k] * k;
+    v.push(sum % 103, 106); return v;
+  }
+  function c128(t) {
+    let s = ''; for (const x of c128vals(t)) { const w = C[x]; for (let k = 0; k < w.length; k++) s += (k % 2 ? '0' : '1').repeat(+w[k]); }
+    return s;
+  }
+  function svg(mods, quiet) {
+    const W = mods.length + quiet * 2, H = Math.round(W * .32); let r = '';
+    for (let i = 0; i < mods.length;) { if (mods[i] === '1') { let j = i; while (mods[j] === '1') j++; r += `<rect x="${i + quiet}" y="0" width="${j - i}" height="${H}"/>`; i = j; } else i++; }
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" preserveAspectRatio="none"><rect width="${W}" height="${H}" fill="#fff"/><g fill="#000">${r}</g></svg>`;
+  }
+  function qr(t) {
+    if (!window.qrcode) return '';
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+    const q = qrcode(0, 'M'); q.addData(t, 'Byte'); q.make();
+    return q.createSvgTag({cellSize: 8, margin: 4, scalable: true});
+  }
+  return {ean, c128, c128vals, svg, qr,
+    render(c) {
+      if (c.format === 'qr') return qr(c.number);
+      if (c.format === 'ean13' || c.format === 'ean8') return svg(ean(c.number), 11);
+      if (c.format === 'code128') return svg(c128(c.number), 12);
+      return '';
+    }};
+})();
+let CARDS = [];
+const hueOf = s => { let h = 0; for (const ch of s.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+async function loadCards() {
+  const d = await api('cards'); CARDS = d.cards;
+  $('#cScope').textContent = (d.personal ? '👤 Раздел личный: видны только ваши карты.' : '👨‍👩‍👧 Раздел общий: карты видит вся семья.')
+    + ' Нажмите на карту — откроется штрихкод для кассы.';
+  $('#cardList').innerHTML = CARDS.map(c => `<div class="lcard" style="--h:${hueOf(c.store)}" data-card="${c.id}" tabindex="0" role="button">
+      <div class="st">${esc(c.store)}</div>
+      <div class="ft"><div style="min-width:0"><div class="no">${esc(c.number)}</div>${c.note ? `<span>${esc(c.note)}</span>` : ''}</div>
+        <span>${c.format === 'qr' ? '▣' : c.format === 'text' ? '#' : '║▌║'}</span></div>
+      <button class="x" title="Удалить карту" data-cx="${c.ref}">✕</button></div>`).join('')
+    + '<button class="lcard add" id="cardNew">＋ Добавить карту</button>';
+  $$('[data-card]').forEach(el => { el.onclick = e => { if (!e.target.closest('[data-cx]')) openCard(+el.dataset.card); };
+    el.onkeydown = e => { if (e.key === 'Enter') openCard(+el.dataset.card); }; });
+  $$('[data-cx]').forEach(b => b.onclick = e => { e.stopPropagation(); cancelOp(b.dataset.cx, loadCards); });
+  $('#cardNew').onclick = () => { $('#cardAdd').open = true; $('#cardForm [name=store]').focus(); };
+  const m = location.hash.match(/^#card-(\d+)$/);
+  if (m) { history.replaceState(null, '', location.pathname); openCard(+m[1]); }
+}
+let wake = null;
+function openCard(id) {
+  const c = CARDS.find(x => x.id === id); if (!c) return toast('Карты нет — возможно, её удалили');
+  $('#cfStore').textContent = c.store + (c.note ? ' · ' + c.note : '');
+  const code = BC.render(c);
+  $('#cfCode').className = 'code' + (c.format === 'qr' ? ' qr' : ''); $('#cfCode').innerHTML = code; $('#cfCode').hidden = !code;
+  $('#cfNo').textContent = c.format === 'ean13' ? c.number.replace(/^(\d)(\d{6})(\d{6})$/, '$1 $2 $3') : c.number;
+  $('#cardFull').classList.add('on');
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w => wake = w).catch(() => {}); } catch (e) {}
+  post(`cards/${id}/used`).catch(() => {});
+}
+function closeCard() { $('#cardFull').classList.remove('on'); try { wake && wake.release(); } catch (e) {} wake = null; }
+$('#cfClose').onclick = closeCard; $('#cardFull').onclick = e => { if (e.target.id === 'cardFull') closeCard(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#cardFull').classList.contains('on')) closeCard(); });
+onForm('#cardForm', async d => { const r = await post('cards', d); toast(r.text.replace(/<[^>]+>/g, '').split('\n')[0].slice(0, 160)); if (!r.ok) throw new Error(JSON.stringify({detail: r.text.replace(/<[^>]+>/g, '')})); loadCards(); });
+// сканер: BarcodeDetector есть в Chrome на Android и в некоторых других браузерах
+const BD_FMT = {ean_13: 'ean13', ean_8: 'ean8', qr_code: 'qr', code_128: 'code128', upc_a: 'ean13'};
+if (!('BarcodeDetector' in window)) { $('#cardScan').hidden = true;
+  $('#cardScanNote').textContent = 'Сканер штрихкода работает в Chrome на Android. Или пришлите фото карты боту — он распознает номер.'; }
+$('#cardScan').onclick = () => $('#cardScanFile').click();
+$('#cardScanFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const det = new BarcodeDetector(), img = await createImageBitmap(f), res = await det.detect(img);
+    if (!res.length) { $('#cardScanNote').textContent = 'Штрихкод не нашёлся. Снимите ближе и ровнее или введите номер вручную.'; return; }
+    const b = res[0], fm = $('#cardForm');
+    fm.number.value = b.rawValue; fm.format.value = BD_FMT[b.format] || (b.format === 'qr_code' ? 'qr' : 'code128');
+    $('#cardScanNote').textContent = '✓ Считал: ' + b.rawValue.slice(0, 40);
+  } catch (err) { $('#cardScanNote').textContent = 'Не получилось прочитать фото: ' + err.message; }
+};
+
 // ---------- настройки (1.7) ----------
 let SET = null, saveTimer = null;
 const DAYS = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
@@ -1262,6 +1400,7 @@ function applyModes() {
   let t = 'home'; try { t = localStorage.getItem('tab') || 'home'; } catch (e) {}
   const mImp = location.hash.match(/^#import-(\d+)$/);
   if (mImp) { t = 'fin'; setTimeout(() => showImport(+mImp[1]), 600); }
+  if (/^#cards?(-\d+)?$/.test(location.hash)) t = 'cards';
   const tb = document.querySelector(`#tabs [data-t="${t}"]`);
   (tb && !tb.hidden ? tb : document.querySelector('#tabs button')).click();
 })();

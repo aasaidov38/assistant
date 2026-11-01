@@ -25,7 +25,7 @@ TOPICS = {
     "updates": "🆕 Новые версии и «что нового»",
 }
 TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "📈 Здоровье", "tasks": "📝 Дела", "shop": "🛒 Покупки",
-        "house": "🏠 Дом", "garage": "🏍 Гараж", "trips": "🧳 Поездки", "debts": "🤝 Долги", "hist": "🕘 История",
+        "house": "🏠 Дом", "garage": "🏍 Гараж", "trips": "🧳 Поездки", "debts": "🤝 Долги", "cards": "💳 Карты", "hist": "🕘 История",
         "ask": "🔎 Спросить"}
 DEFAULTS = {"theme": "system", "animations": True, "hidden_tabs": [],
             "notify": {k: True for k in TOPICS},

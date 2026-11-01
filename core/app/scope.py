@@ -30,6 +30,7 @@ SECTIONS = {
     "meds":      ("💊 Лекарства",                                  "personal"),
     "notes":     ("🗒 Заметки",                                    "personal"),
     "debts":     ("🤝 Долги",                                      "personal"),
+    "cards":     ("💳 Карты лояльности",                           "shared"),
 }
 DEFAULTS = {k: v[1] for k, v in SECTIONS.items()}
 

@@ -166,6 +166,13 @@ async def chart_js():
                         headers={"Cache-Control": "public, max-age=604800"})
 
 
+@router.get("/web/static/qrcode.js")
+async def qrcode_js():
+    # Генератор QR-кодов Kazuhiko Arase (MIT, лицензия в qrcode.LICENSE.txt) — для карт лояльности
+    return FileResponse(INDEX.parent / "qrcode.js", media_type="text/javascript",
+                        headers={"Cache-Control": "public, max-age=604800"})
+
+
 @router.get("/web")
 async def web_root():
     return RedirectResponse("/web/", status_code=307)

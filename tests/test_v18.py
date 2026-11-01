@@ -4,7 +4,7 @@ import asyncio, json, os, subprocess, tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import asyncpg
-from app import ai, brain, db, notify, release, scope, users, web_life
+from app import ai, brain, cards, db, notify, release, scope, undo, users, web_life
 from app.schemas import Action
 
 from _env import PSQL
@@ -24,7 +24,7 @@ async def fake_deliver(uid, reply):
 
 
 SEED = """
-TRUNCATE families, users, user_identities, outbox, app_state RESTART IDENTITY CASCADE;
+TRUNCATE families, users, user_identities, outbox, app_state, loyalty_cards RESTART IDENTITY CASCADE;
 INSERT INTO families (name) VALUES ('Демо');
 INSERT INTO users (family_id, name) VALUES (1,'Алексей'), (1,'Мария');
 INSERT INTO user_identities (channel, external_id, user_id) VALUES ('telegram','111',1),('telegram','222',2);
@@ -55,7 +55,18 @@ async def press(uid, action):
     return await brain.handle_action(Action(external_user_id=str(uid), action=action))
 
 
+AI = {}
+
+
+async def fake_json(system, text, **k):
+    for key, val in AI.items():
+        if key in text:
+            return val
+    raise AssertionError("нет заготовки ИИ для: " + text[:80])
+
+
 async def main():
+    ai.complete_json = fake_json
     db.pool = asyncpg.FakeConn()
     sql(SEED)
     notify.deliver = fake_deliver
@@ -164,6 +175,73 @@ async def main():
           "Safari mp4 → m4a, по умолчанию ogg")
     html = (root / "core/app/static/chat.html").read_text()
     check("MediaRecorder" in html and "pointerdown" in html and "setPointerCapture" in html, "чат: удержание и запись в браузере")
+
+    print("9. Карты лояльности: номера и форматы")
+    check(cards.clean("2775 0123 4567 5") == ("2775012345675", "ean13"), "13 цифр с верной контрольной → EAN-13")
+    check(cards.clean("2775 0123 4567 8") == ("2775012345678", "code128"), "контрольная не сошлась → обычный штрихкод")
+    check(cards.clean("46070123")[1] == "code128" and cards.clean("96385074")[1] == "ean8", "EAN-8 только при верной контрольной")
+    check(cards.clean("AB-12345")[1] == "code128" and cards.clean("Клуб 15%")[1] == "qr" and cards.clean("x", "text")[1] == "text",
+          "буквы → Code128, кириллица → QR, «только номер»")
+    try:
+        cards.clean("4276 3800 1234 5679"); bank = False
+    except cards.CardError as e:
+        bank = "банковской" in str(e)
+    check(bank, "номер банковской карты (Луна, 16 цифр) не принимается")
+    check(not cards.looks_like_bank_card("7799123456789012") and not cards.looks_like_bank_card("2775012345675"),
+          "карты магазинов (77…, 13 цифр) за банковские не принимаются")
+
+    print("10. Карты: бот")
+    sql("UPDATE app_state SET value='{}' WHERE key='update_offer'")
+    AI["карта Ленты"] = {"intent": "card_add", "card_add": {"store": "Лента", "number": "2775 0123 4567 5"}}
+    r = await brain.handle_text(alex, "карта Ленты 2775 0123 4567 5", source="text")
+    check("Сохранил карту <b>Лента</b>" in r.text and "EAN-13" in r.text and any(b.action == "u:c.1:del" for row in r.buttons for b in row),
+          "«карта Ленты …» сохраняет, есть отмена", r.text)
+    r = await brain.handle_text(alex, "карта Ленты 2775 0123 4567 5", source="text")
+    check("уже есть" in r.text, "повтор — не дублирует", r.text)
+    AI["карта Пятёрочки"] = {"intent": "card_add", "card_add": {"store": "Пятёрочка", "number": "7799 1234 5678"}}
+    await brain.handle_text(maria, "карта Пятёрочки 7799 1234 5678", source="text")
+    AI["банк"] = {"intent": "card_add", "card_add": {"store": "Сбер", "number": "4276380012345679"}}
+    r = await brain.handle_text(alex, "банк 4276380012345679", source="text")
+    check("не храню" in r.text and sql("select count(*) from loyalty_cards") == "2", "банковскую карту бот не сохраняет", r.text)
+    AI["покажи карту ленты"] = {"intent": "card_show", "card_show": {"store": "ленты"}}
+    r = await brain.handle_text(maria, "покажи карту ленты", source="text")
+    check("Лента" in r.text and "2775012345675" in r.text, "Мария видит карту Алексея (раздел общий)", r.text)
+    check(sql("select used_count from loyalty_cards where id=1") == "1", "показ считает использование")
+    AI["покажи карту пятерочки"] = {"intent": "card_show", "card_show": {"store": "пятерочки"}}
+    r = await brain.handle_text(alex, "покажи карту пятерочки", source="text")
+    check("Пятёрочка" in r.text, "«пятерочки» найдёт «Пятёрочка»", r.text)
+    AI["карту магнита"] = {"intent": "card_show", "card_show": {"store": "магнита"}}
+    r = await brain.handle_text(alex, "карту магнита", source="text")
+    check("не нашёл" in r.text and "c:1:show" in [b.action for row in r.buttons for b in row], "нет карты — список кнопками", r.text)
+    r = await brain.handle_text(alex, "/cards", source="text")
+    check("Карты лояльности</b> (2)" in r.text and r.text.index("Лента") < r.text.index("Пятёрочка"), "/cards: частые сверху", r.text)
+    r = await press(111, "c:2:show")
+    check("Пятёрочка" in r.text and "779912345678" in r.text, "кнопка карты", r.text)
+
+    print("11. Карты: фото, личный режим, отмена, панель")
+    AI["Разбери фото"] = {"type": "card", "store": "Магнит", "number": "4607012345677", "format": "ean13"}
+    r = await brain.handle_photo(alex, "eA==", "image/jpeg", "")
+    check("Магнит" in r.text and "EAN-13" in r.text, "фото карты → сохранена", r.text)
+    op, _ = await undo.cancel(alex, "c.3")
+    check(op and op["cancelled"] and len(await cards.cards(1)) == 2, "отмена удаляет карту", op)
+    await undo.restore(alex, "c.3")
+    h = await undo.history(1, types=["card"])
+    check(len(h) == 3 and h[0]["title"].startswith("💳"), "карты в истории", h[:2])
+    sql("UPDATE families SET sections = sections || '{\"cards\":\"personal\"}'::jsonb")
+    await scope.enter(maria)
+    check([c["store"] for c in await cards.cards(1)] == ["Пятёрочка"], "личный режим: Мария видит только свою")
+    sql("UPDATE families SET sections = sections - 'cards'")
+    await scope.enter(alex)
+    d = await web_life.cards_list(user=alex)
+    check(len(d["cards"]) == 3 and d["cards"][0]["store"] == "Пятёрочка" and d["cards"][0]["ref"] == "c.2"
+          and not d["cards"][0]["mine"] and not d["personal"], "API: список карт", d)
+    r = await web_life.cards_add(web_life.CardIn(store="Летуаль", number="ABC-77"), user=alex)
+    check(r["ok"] and "Code" not in r["text"] and "штрихкод" in r["text"], "API: добавить карту", r)
+    r = await web_life.cards_add(web_life.CardIn(store="Банк", number="5469 3800 1234 5673"), user=alex)
+    check(not r["ok"] and "не храню" in r["text"], "API: банковская карта отклонена", r)
+    await web_life.cards_used(1, user=alex)
+    check(sql("select used_count from loyalty_cards where id=1") == "2", "API: отметка использования")
+    scope.leave()
 
     print("ИТОГ:", "всё прошло" if not FAILS else FAILS)
 
