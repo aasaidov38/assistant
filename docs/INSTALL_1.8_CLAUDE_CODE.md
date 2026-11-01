@@ -83,6 +83,12 @@ core, telegram, db, backup). Рядом работают n8n и Caddy в /opt/n8
    - ssh assistant "docker compose -f /opt/assistant/docker-compose.yml exec -T core python -c 'import cryptography; print(cryptography.__version__)'"
      → номер версии (нужно для push-уведомлений).
 
+7a. Сайт проекта (появился в 1.7.2; если 1.7.2 ещё не ставили, Caddy его не пропускает):
+   ssh assistant "grep -n '@public' /opt/n8n/Caddyfile"
+   Если в строке блока assistant.saidov.ru уже есть « / /site/*» — пропусти. Иначе выполни шаг 6b из
+   docs/DEPLOY_CLAUDE_CODE.md (он есть в папке /opt/assistant/docs на сервере: копия Caddyfile, добавить « / /site/*»
+   в строку @public, caddy validate, caddy reload, проверки).
+
 8. Поставь агент обновлений (cron раз в минуту) и ротацию его журнала:
    ssh assistant "printf '# Агент семейного ассистента: состояние копий и обновления по кнопке (1.8)\n* * * * * root /opt/assistant/scripts/host-agent.sh >> /var/log/assistant-agent.log 2>&1\n' > /etc/cron.d/assistant-agent;
      chmod 644 /etc/cron.d/assistant-agent;
