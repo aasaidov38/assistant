@@ -1,5 +1,4 @@
 """Учёт семейных доходов и расходов."""
-import logging
 import uuid
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
@@ -91,12 +90,6 @@ async def save(user: User, items: list[dict], source: str, raw: dict | None = No
             saved.append(await _load(conn, row["id"]))
         for t in saved:
             await db.emit(conn, "transaction.created", t)
-    if saved and source not in ("bank_push", "bank"):
-        from . import bankfeed       # 1.9: ручная запись после автоматической из уведомления банка
-        try:
-            await bankfeed.absorb_manual(user, saved)
-        except Exception:
-            logging.getLogger("finance").exception("Сверка с уведомлениями банка")
     return saved
 
 
@@ -132,8 +125,6 @@ def render_saved(rows: list[dict], header: str = "") -> Reply:
         total = sum(t["amount"] for t in rows if t["kind"] == "expense")
         if total:
             text += f"\nИтого расходов: <b>{money(total)}</b>"
-    if any(t.get("bank_dup") for t in rows):
-        text += "\n🏦 Совпало с уведомлением банка — автоматическую запись убрал, чтобы не было дубля."
     buttons: list[list[Button]] = []
     if len(rows) == 1:
         tid = rows[0]["id"]

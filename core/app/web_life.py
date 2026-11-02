@@ -716,8 +716,7 @@ async def cards_used(cid: int, user: users.User = Depends(current_user)):
 
 # ---------- 1.8. Интеграции и push ----------
 
-SOON = [("✉️ Gmail", "Чеки, счета и брони из почты", "1.10"),
-        ("🍏 iPhone", "Команды для приложения «Быстрые команды»", "1.11")]
+SOON = [("✉️ Gmail", "Чеки, счета и брони из почты", "1.10")]
 
 
 @router.get("/web/api/integrations")
@@ -740,7 +739,7 @@ async def integrations(user: users.User = Depends(current_user)):
         "ticktick": tt,
         "alice": {"configured": bool(s.alice_secret and s.public_url), "linked": "alice" in chans},
         "push": {"available": bool(keys), "key": keys["pub"] if keys else None, "count": await push.count(user.id)},
-        "android": {"url": site + "/#apps" if site else None},
+        "app": {"url": site + "/#apps" if site else None},
         "soon": [{"title": a, "sub": b, "version": v} for a, b, v in SOON],
     })
 

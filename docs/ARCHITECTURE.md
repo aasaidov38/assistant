@@ -190,13 +190,3 @@ POST /v1/inbound
 | Выход | `index.html` | Кнопка в ⚙️ → 👤 Аккаунт, с подтверждением; в шапке её нет |
 
 Ссылку «💬 Чат» из пункта 4 списка «Что нельзя ломать» (HANDOFF 1.7.1) заменяет строка ввода на каждом разделе; адрес `/web/chat` сохранён.
-
-## Версия 1.9: данные с телефона
-
-- `devices.py` — личные ключи телефонов (`dev_…`, в базе sha256), конфигурация для приложения (списки банков, USSD), отзыв.
-- `device_api.py` — роутер: панель (`/web/api/devices`, `/web/api/bankfeed`, сессия) и телефон (`/web/api/device/*`, заголовок `X-Device-Key`). Всё под `/web/` — Caddy не меняется.
-- `health.py` — Health Connect → `metrics` (`source='health'`, `ext_id` для идемпотентности, `extra` для мин/макс пульса).
-- `bankfeed.py` — разбор уведомлений/SMS банков (регулярные выражения, без ИИ), обезличивание, три уровня дублей, запись через `finance.save(source='bank_push')`, категория через `bank._categorize`. `finance.save` для остальных источников вызывает `bankfeed.absorb_manual` (ручная запись поглощает автоматическую).
-- `simcards.py` — ответ USSD → баланс, напоминание при пороге `prefs.sim_low` (один раз до пополнения).
-- Настройки: `bank_auto` (по умолчанию выкл.), `sim_low`; темы уведомлений `bank`, `sim`.
-- Android 1.9 (`assistant-android`): `Device` (ключ, очередь, HTTP), `HealthSync` (платформенный Health Connect, Android 14+), `BankListener` (NotificationListenerService), `SmsReceiver`, `SimCheck` (USSD по подпискам), `SyncJob` (JobScheduler ~3 ч), `BootReceiver`.

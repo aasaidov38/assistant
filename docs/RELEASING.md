@@ -18,16 +18,6 @@
    ```
    Через 30 минут или меньше агент на сервере увидит новую версию, владелец получит сообщение.
 6. Обновить сайт (раздел «История изменений» в `core/app/static/site/index.html`) — можно в той же версии.
-7. Если вышла новая сборка Android-приложения — выложить её на сайт (скачивание без GitHub, с версии 1.9.1).
-   Каждая сборка в `main` репозитория `assistant-android` кладёт последний APK в его ветку `apk`
-   (файлы `Assistant.apk` и `VERSION`). Забрать и положить в сайт:
-   ```
-   git clone -q --depth 1 -b apk https://github.com/aasaidov38/assistant-android /tmp/apk
-   cp /tmp/apk/Assistant.apk core/app/static/site/Assistant.apk
-   cp /tmp/apk/VERSION core/app/static/site/APK_VERSION
-   ```
-   и поправить номер на кнопке «⬇️ Скачать APK · …» в `index.html`. Сайт на сервере обновится вместе с версией
-   ассистента (пункты 2–5). Адрес для скачивания всегда один: https://assistant.saidov.ru/site/Assistant.apk
 
 Миграции базы только добавляют (новые таблицы, колонки с значениями по умолчанию): при откате кода
 старая версия должна работать с новой базой.

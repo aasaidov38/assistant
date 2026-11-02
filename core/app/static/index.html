@@ -374,7 +374,6 @@ a.btn{text-decoration:none;display:inline-block}
         <input name="deadline" type="date" title="К какому сроку">
         <button class="btn pri full">Создать</button></form></details></div>
   </div>
-  <div class="card" style="margin-top:12px" id="bfCard"><h3>🏦 Банки: остатки и уведомления</h3><div id="bankFeed"></div></div>
   <div class="card" style="margin-top:12px"><h3>🏦 Импорт выписки</h3>
     <div class="muted" style="font-size:13px">CSV или PDF из Сбера, Т-Банка и других банков. Сверю с записанным и покажу, чего не хватает.
       Можно и просто прислать файл боту.</div>
@@ -413,7 +412,6 @@ a.btn{text-decoration:none;display:inline-block}
     <div class="card"><h3>💧 Вода</h3><div class="ch"><canvas id="hWater"></canvas></div></div>
     <div class="card"><h3>👟 Шаги</h3><div class="ch"><canvas id="hSteps"></canvas></div></div>
     <div class="card"><h3>😴 Сон</h3><div class="ch"><canvas id="hSleep"></canvas></div></div>
-    <div class="card"><h3>❤️ Пульс <span class="muted" style="font-size:12px;font-weight:400">в среднем за день, с телефона</span></h3><div class="ch"><canvas id="hPulse"></canvas></div></div>
   </div>
   <div class="card" style="margin-top:12px"><h3>Последние записи</h3><div class="scroll"><table id="habRows"></table></div></div>
 </section>
@@ -735,7 +733,6 @@ $('#txMore').onclick = () => { $('#tx').dataset.all = '1'; loadFin(); };
 $('#mPrev').onclick = () => { month.setMonth(month.getMonth() - 1); loadFin(); };
 $('#mNext').onclick = () => { month.setMonth(month.getMonth() + 1); loadFin(); };
 async function loadFin() {
-  loadBankFeed();
   $('#mName').textContent = MONTHS[month.getMonth()] + ' ' + month.getFullYear();
   const prevM = new Date(month); prevM.setMonth(prevM.getMonth() - 1);
   const [d, pd] = await Promise.all([api('finance?month=' + ym(month)), api('finance?month=' + ym(prevM))]);
@@ -818,22 +815,6 @@ async function loadFinExtra() {
   $('#bankRecent').innerHTML = imps.length ? 'Последние выписки: ' + imps.map(i => `<button class="btn sm" data-imp="${i.id}">${esc(i.bank || i.filename || 'выписка')} ${dmy(i.date_from).slice(0, 5)}–${dmy(i.date_to).slice(0, 5)}${i.new ? ' · новых ' + i.new : ''}</button>`).join(' ') : '';
   $$('[data-imp]').forEach(x => x.onclick = () => showImport(+x.dataset.imp));
 }
-// уведомления и SMS банков (1.9)
-async function loadBankFeed() {
-  let F; try { F = await api('bankfeed'); } catch (e) { $('#bankFeed').innerHTML = ''; return; }
-  const ST = {saved: ['записано', 'grn'], matched: ['уже было записано', ''], duplicate: ['дубль', ''], transfer: ['перевод себе', ''],
-    balance: ['остаток', ''], unparsed: ['не понял', 'yel']};
-  let h = F.balances.length ? '<div class="kpis" style="margin:4px 0 10px">' + F.balances.map(b => `<div class="card kpi"><div class="l">${esc(b.bank_name)}${b.card_tail ? ' ••' + esc(b.card_tail) : ''}</div>
-      <div class="v">${rub(b.balance)}</div><div class="muted" style="font-size:12px">${esc(b.owner)} · ${ago(b.occurred_at).s}</div></div>`).join('') + '</div>' : '';
-  h += F.events.length ? '<div class="scroll"><table><tr><th>Когда</th><th>Банк</th><th>Операция</th><th class="num">Сумма</th><th></th></tr>' + F.events.map(e => `<tr>
-      <td>${ago(e.occurred_at).s}<div class="muted">${esc(e.owner)} · ${e.channel === 'sms' ? 'SMS' : 'push'}</div></td><td>${esc(e.bank_name)}${e.card_tail ? ' ••' + esc(e.card_tail) : ''}</td>
-      <td>${esc(e.merchant || (e.kind === 'income' ? 'Поступление' : e.kind ? 'Трата' : 'Остаток'))}</td>
-      <td class="num">${e.amount ? (e.kind === 'income' ? '+' : '−') + rub(e.amount) : ''}</td><td>${pill(...(ST[e.status] || [e.status]))}</td></tr>`).join('') + '</table></div>' : '';
-  h += `<div class="muted" style="font-size:13px;margin-top:8px">${F.enabled_for.length ? 'Записывает траты из уведомлений: ' + esc(F.enabled_for.join(', ')) + '. '
-      : 'Запись трат из уведомлений банков выключена. '}Сбер, Т-Банк, ВТБ, Альфа-Банк. Включается в ⚙️ Настройки → 🔌 Интеграции → 📱 Телефоны.
-      От карты хранятся только 4 последние цифры, коды и пароли не сохраняются.</div>`;
-  $('#bankFeed').innerHTML = h;
-}
 onForm('#billForm', async d => { await post('bills', {...d, amount: d.amount ? +d.amount : null, day: +d.day, period_months: +d.period_months}); toast('💳 Платёж добавлен'); loadFinExtra(); });
 onForm('#goalForm', async d => { await post('savings', {...d, target: +d.target}); toast('🎯 Цель создана'); loadFinExtra(); });
 $('#bankForm').onsubmit = async e => { e.preventDefault(); const f = $('#bankFile').files[0]; if (!f) return;
@@ -901,8 +882,7 @@ async function loadHab() {
   };
   draw('hWeight', 'weight', 'line', PAL[3]); draw('hWater', 'water', 'bar', PAL[5]);
   draw('hSteps', 'steps', 'bar', PAL[1]); draw('hSleep', 'sleep', 'bar', PAL[0]);
-  if (d.series.pulse) draw('hPulse', 'pulse', 'line', PAL[2]);
-  const num = (k, v) => k === 'water' || k === 'steps' || k === 'pulse' ? Math.round(v).toLocaleString('ru-RU') : String(v).replace('.', ',');
+  const num = (k, v) => k === 'water' || k === 'steps' ? Math.round(v).toLocaleString('ru-RU') : String(v).replace('.', ',');
   $('#habRows').innerHTML = d.entries.length ? d.entries.map(e => { const t = new Date(e.at);
     return `<tr><td>${t.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} ${t.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}</td>
       <td>${esc(d.names[e.kind] || e.kind)}</td><td class="num">${num(e.kind, e.value)} ${esc(d.units[e.kind] || '')}</td>
@@ -1472,6 +1452,12 @@ async function loadInt() {
   const item = (name, sub, right, extra) => `<div class="opt" style="align-items:flex-start"><div class="grow">${name}<div class="sub">${sub}</div>${extra || ''}</div>${right}</div>`;
   const t = I.ticktick; let h = '';
   h += item('✈️ Telegram', 'Основной канал: бот, напоминания, копии из панели', st(I.telegram.connected, I.telegram.connected ? 'подключён' : 'нет'));
+  const how = STANDALONE ? 'Вы уже открыли ассистента как приложение: отдельное окно, свой значок'
+    : INSTALL ? 'Ярлык на рабочем столе или главном экране, отдельное окно без адресной строки, push-уведомления'
+    : IOS ? 'iPhone: в Safari нажмите «Поделиться» → «На экран Домой»'
+    : 'Chrome или Edge на компьютере: значок установки в адресной строке или меню ⋮ → «Установить». Android: меню ⋮ → «Добавить на главный экран»';
+  h += item('📲 Приложение на рабочем столе', how, st(STANDALONE, STANDALONE ? 'установлено' : ''),
+    INSTALL && !STANDALONE ? '<div style="margin-top:6px"><button class="btn sm pri" id="iInst">📲 Создать ярлык</button></div>' : '');
   if (!t.configured) h += item('✅ TickTick', 'Владелец ещё не включил TickTick на сервере (README, раздел «TickTick»)', st(false, 'не настроен'));
   else h += item('✅ TickTick', t.connected ? `Задачи двусторонне. Синхронизация: ${t.sync_min == null ? 'ещё не было' : t.sync_min + ' мин назад'}${t.days != null ? ` · доступ ещё ${t.days} дн.` : ''}`
       + (t.last_error ? `<br><span style="color:var(--bad)">⚠️ ${esc(t.last_error)}</span>` : '') : (t.expired ? 'Доступ истёк — подключите заново' : 'Задачи из ассистента появятся в TickTick и обратно'),
@@ -1489,12 +1475,6 @@ async function loadInt() {
     I.push.available && (P.state === 'on' || P.state === 'off') ? `<div style="display:flex;gap:6px;margin-top:6px">${P.state === 'on'
       ? '<button class="btn sm" id="iPt">Прислать пробное</button><button class="btn sm" id="iPoff">Выключить</button>' : '<button class="btn sm pri" id="iPon">Включить</button>'}</div>`
       : I.push.available ? '' : '<div class="muted" style="font-size:12px">На сервере нет библиотеки cryptography — push выключен.</div>');
-  h += item('📲 Панель как приложение', STANDALONE ? 'Вы уже открыли панель как приложение' : INSTALL ? 'Значок на рабочем столе, отдельное окно, push-уведомления'
-      : IOS ? 'Safari: «Поделиться» → «На экран Домой»' : 'В меню браузера: «Установить приложение» или «Добавить на главный экран»',
-    st(STANDALONE, STANDALONE ? 'установлено' : ''), INSTALL && !STANDALONE ? '<div style="margin-top:6px"><button class="btn sm pri" id="iInst">📲 Установить</button></div>' : '');
-  h += item('🤖 Приложение для Android', 'Чат, голосовые удержанием, «Поделиться → Ассистент» из других приложений',
-    '', I.android.url ? `<div style="margin-top:6px"><a class="btn sm" href="${esc(I.android.url)}" target="_blank" rel="noopener">Как установить</a></div>` : '');
-  h += await phonesBlock();
   h += `<div class="full" style="grid-column:1/-1;margin-top:10px"><div class="muted" style="font-size:12.5px;margin-bottom:6px">Скоро:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${I.soon.map(x => `<span class="pill" title="${esc(x.sub)}">${esc(x.title)} · ${esc(x.version)}</span>`).join('')}</div></div>`;
   $('#sInt').innerHTML = h;
@@ -1515,57 +1495,6 @@ async function loadInt() {
     } catch (e) { toast('⚠️ Не получилось включить: ' + errText(e).slice(0, 150)); } });
   $('#iPoff') && ($('#iPoff').onclick = async () => { try { await post('push/unsubscribe', {endpoint: P.sub.endpoint}); await P.sub.unsubscribe(); } catch (e) {} loadInt(); });
   $('#iPt') && ($('#iPt').onclick = () => act(() => post('push/test')));
-  bindPhones(card);
-}
-// телефоны: здоровье, банки, баланс SIM (1.9). Мост window.Android есть в приложении для Android 1.9 и новее.
-const APP19 = () => !!(window.Android && window.Android.deviceInfo);
-function devInfo() { try { return JSON.parse(window.Android.deviceInfo()); } catch (e) { return null; } }
-window.onDeviceChanged = () => { if ($('#sInt') && $('#sInt').innerHTML) loadInt(); };
-async function phonesBlock() {
-  let D = {devices: []}; try { D = await api('devices'); } catch (e) {}
-  const me = SET ? SET.me : {}, owner = SET && SET.owner, di = APP19() ? devInfo() : null;
-  const ok = (on, txt) => `<span class="pill ${on ? 'grn' : ''}" style="font-size:12px">${on ? '✓ ' : ''}${esc(txt)}</span>`;
-  const row = (name, sub, right) => `<div class="hrow" style="justify-content:space-between;margin:6px 0;gap:8px"><div class="grow">${name}<div class="sub">${sub}</div></div>${right}</div>`;
-  let x = '';
-  if (di && !di.paired) x += `<div style="margin-top:6px"><button class="btn sm pri" id="phPair">📱 Подключить этот телефон</button>
-      <div class="muted" style="font-size:12.5px;margin-top:4px">Телефон получит личный ключ и сможет присылать шаги, сон, вес, пульс, уведомления банков и баланс SIM.</div></div>`;
-  else if (di) {
-    const p = di.perms || {};
-    x += row('❤️ Здоровье (Health Connect)', di.sdk < 34 ? 'Нужен Android 14 или новее' : 'Шаги, сон, вес, пульс из Mi Fitness. В Mi Fitness включите передачу в Health Connect.'
-        + (di.last && di.last.health ? ' Последняя отправка: ' + esc(di.last.health) : ''),
-      p.health ? ok(true, 'разрешено') : di.sdk >= 34 ? '<button class="btn sm" data-ph="askHealth">Разрешить</button>' : '');
-    x += row('🏦 Уведомления банков', 'Доступ к уведомлениям: приложение читает только уведомления Сбера, Т-Банка, ВТБ и Альфа-Банка',
-      p.notif ? ok(true, 'есть доступ') : '<button class="btn sm" data-ph="askNotif">Открыть доступ</button>');
-    x += row('💬 SMS банков', 'Если банк присылает SMS (например, 900). Повтор из push и SMS не задвоится.',
-      p.sms ? ok(true, 'разрешено') : '<button class="btn sm" data-ph="askSms">Разрешить</button>');
-    x += row('📶 Баланс SIM', 'USSD-запрос по каждой SIM раз в 6 часов (*100#, у Билайна *102#, у Т2 *105#)' + (di.last && di.last.sim ? '. Последняя проверка: ' + esc(di.last.sim) : ''),
-      p.phone ? ok(true, 'разрешено') : '<button class="btn sm" data-ph="askPhone">Разрешить</button>');
-    x += row('🔋 Работа в фоне', 'На Xiaomi: «Контроль активности» → «Нет ограничений» и «Автозапуск» — иначе система будет останавливать сбор',
-      '<button class="btn sm" data-ph="openBattery">Открыть</button>');
-    x += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-ph="syncNow">🔄 Отправить сейчас</button></div>`;
-  } else x += '<div class="muted" style="font-size:12.5px;margin-top:4px">Шаги, сон, пульс, уведомления банков и баланс SIM собирает приложение для Android версии 1.9 и новее. Откройте эту страницу в нём.</div>';
-  x += `<div class="opt" style="margin-top:10px"><div class="grow">Записывать мои траты из уведомлений и SMS банков<div class="sub">По умолчанию выключено. Дубли с ручным вводом убираются сами.</div></div>
-      <label class="sw"><input type="checkbox" id="phBank" ${me.bank_auto ? 'checked' : ''}><span></span></label></div>
-    <div class="opt"><div class="grow">Напомнить, когда баланс SIM ниже, ₽<div class="sub">0 — не напоминать</div></div>
-      <input type="number" min="0" max="5000" step="10" id="phLow" value="${me.sim_low ?? 100}" style="width:90px;flex:none"></div>`;
-  if (D.devices.length) x += '<div style="margin-top:10px">' + D.devices.map(d => {
-      const seen = ago(d.last_seen), sims = (d.sims || []).map(s => `${esc(s.operator)}: ${s.balance == null ? '—' : rub(s.balance)}${s.error ? ' ⚠️' : ''}`).join(' · ');
-      const here = di && di.paired && String(di.device_id) === String(d.id);
-      return row(`📱 ${esc(d.name)} <span class="muted">· ${esc(d.owner)}${here ? ' · этот телефон' : ''}</span>`, (seen ? 'На связи: ' + seen.s : 'Ещё не присылал данные') + (sims ? '<br>' + sims : ''),
-        d.mine || owner ? `<button class="btn sm" data-phx="${d.id}">Отозвать</button>` : ''); }).join('') + '</div>';
-  return `<div class="opt full" style="grid-column:1/-1;align-items:flex-start"><div class="grow">📱 Телефоны<div class="sub">Здоровье, банки и баланс SIM с ваших телефонов</div>${x}</div></div>`;
-}
-function bindPhones(card) {
-  $('#phBank') && ($('#phBank').onchange = async e => { await saveSet({bank_auto: e.target.checked}, card); APP19() && window.Android.syncNow && window.Android.syncNow(); });
-  $('#phLow') && ($('#phLow').onchange = e => saveSet({sim_low: +e.target.value || 0}, card));
-  $('#phPair') && ($('#phPair').onclick = async () => { const di = devInfo() || {};
-    try { const r = await post('devices', {name: di.model || 'Телефон', info: di}); window.Android.pair(r.key, String(r.id)); toast('📱 Телефон подключён'); }
-    catch (e) { toast('⚠️ ' + errText(e)); } loadInt(); });
-  $$('[data-ph]').forEach(b => b.onclick = () => { try { window.Android[b.dataset.ph](); if (b.dataset.ph === 'syncNow') toast('🔄 Отправляю данные'); } catch (e) { toast('⚠️ Обновите приложение'); } });
-  $$('[data-phx]').forEach(b => b.onclick = () => { if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Точно отозвать?'; return; }
-    const di = APP19() ? devInfo() : null;
-    if (di && String(di.device_id) === b.dataset.phx) try { window.Android.unpair(); } catch (e) {}
-    act(() => post('devices/' + b.dataset.phx + '/revoke'), loadInt); });
 }
 // версия и копии (1.8)
 function ago(iso) {

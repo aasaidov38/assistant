@@ -27,7 +27,7 @@ from .util import esc
 
 log = logging.getLogger("release")
 
-VERSION = "1.9.2"
+VERSION = "1.9.3"
 HERE = Path(__file__).resolve().parent
 CHANGELOG = HERE.parent / "CHANGELOG.md"
 STATE = HERE.parent / "state"

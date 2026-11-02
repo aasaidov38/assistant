@@ -23,8 +23,6 @@ TOPICS = {
     "tasks":  "📝 Выполнение дел, которые вы поручили",
     "budget": "🎯 Лимиты и траты других",
     "updates": "🆕 Новые версии и «что нового»",
-    "bank":   "🏦 Траты, записанные из уведомлений банков",
-    "sim":    "📶 Низкий баланс телефона",
 }
 TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "📈 Привычки и лекарства", "tasks": "📝 Дела", "shop": "🛒 Покупки",
         "house": "🏠 Дом", "garage": "🏍 Гараж", "trips": "🧳 Поездки", "debts": "🤝 Долги", "cards": "💳 Карты", "hist": "🕘 История",
@@ -32,9 +30,7 @@ TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "�
 DEFAULTS = {"theme": "system", "animations": True, "hidden_tabs": [],
             "notify": {k: True for k in TOPICS},
             "quiet": {"on": False, "from": "22:00", "to": "08:00"},
-            "mirror": True,
-            "bank_auto": False,      # 1.9: записывать траты из уведомлений и SMS банков (включает сам человек)
-            "sim_low": 100}          # 1.9: напомнить, когда баланс SIM ниже, ₽ (0 — не напоминать)
+            "mirror": True}
 GOALS = {"kcal": ("🔥 Калории", "ккал"), "water": ("💧 Вода", "мл"), "steps": ("👟 Шаги", ""),
          "weight": ("⚖️ Целевой вес", "кг"), "sleep": ("😴 Сон", "ч")}
 _TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
@@ -127,13 +123,6 @@ async def update(user: users.User, patch: dict) -> dict:
                 s["quiet"][k] = f"{t.hour:02d}:{t.minute:02d}"
     if "mirror" in p:
         s["mirror"] = bool(p["mirror"])
-    if "bank_auto" in p:
-        s["bank_auto"] = bool(p["bank_auto"])
-    if "sim_low" in p:
-        try:
-            s["sim_low"] = max(0, min(int(float(p["sim_low"] or 0)), 5000))
-        except (TypeError, ValueError):
-            pass
     await pool.execute("UPDATE users SET settings=$2::jsonb WHERE id=$1", user.id, s)
 
     if isinstance(p.get("morning"), dict):
