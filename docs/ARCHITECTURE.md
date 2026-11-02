@@ -179,3 +179,14 @@ POST /v1/inbound
 | Интеграции | `web_life.py` `/web/api/integrations…` | Статусы Telegram/TickTick/Алисы/push по пользователю; отключение TickTick удаляет строку `integrations` |
 | PWA и push | `push.py`, `push_subscriptions`, `static/sw.js`, `/web/manifest.webmanifest`, иконки | RFC 8291 (aes128gcm) + VAPID (ES256) на `cryptography`; проверено по примеру из RFC 8291. `notify.send` после Telegram шлёт push (кроме `quiet="drop"` — копий из панели); 404/410 удаляют подписку, 5 ошибок подряд — тоже |
 | Тесты | `tests/`, `.github/workflows/tests.yml` | На настоящей PostgreSQL, заглушки asyncpg/fastapi/httpx в `tests/stubs` |
+
+## Версия 1.8.1: навигация и строка ввода
+
+| Что | Файлы | Детали |
+|---|---|---|
+| Группы разделов | `static/index.html` (`GROUPS`, `#tabs [data-g]`) | 6 групп; `#tabs` — подразделы текущей группы; `localStorage['tab']` и `['subtab']`; ссылки `#cards`, `#card-N`, `#set`, `#import-N`, `#<раздел>` (`goHash`) |
+| Строка ввода | `static/chat.html` (режим `embed`), `#dock`/`#chatFrame` в `index.html` | Сообщения рамка → панель: `size{h}`, `open`, `close`, `reply` (обновить раздел), `nav{url}` (кнопки-ссылки из ответов); панель → рамка: `open`, `close`, `focus`. Проверка `origin` и поля `src` |
+| Android | `index.html` | `window.onVoiceStarted/onVoice/onVoiceError/onVoicePermission` пересылаются в рамку (мост `window.Android` виден и в рамке). «Поделиться» по-прежнему открывает `/web/chat` |
+| Выход | `index.html` | Кнопка в ⚙️ → 👤 Аккаунт, с подтверждением; в шапке её нет |
+
+Ссылку «💬 Чат» из пункта 4 списка «Что нельзя ломать» (HANDOFF 1.7.1) заменяет строка ввода на каждом разделе; адрес `/web/chat` сохранён.

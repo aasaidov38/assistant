@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="robots" content="noindex">
 <title>Семейный ассистент</title>
 <link rel="manifest" href="/web/manifest.webmanifest">
@@ -51,19 +51,51 @@ header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--card)
 .top{display:flex;align-items:center;gap:12px;padding:12px 18px 6px;max-width:1180px;margin:auto}
 .top h1{font-size:18px;margin:0;flex:1;font-weight:700;letter-spacing:-.01em}
 .top h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.top form button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:6px 12px;cursor:pointer;font:inherit;transition:.2s}
-.top form button:hover{color:var(--ink);border-color:var(--muted)}
-nav{display:flex;gap:4px;overflow-x:auto;padding:4px 14px 10px;max-width:1180px;margin:auto;scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
-nav button{flex:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:8px 14px;border-radius:12px;cursor:pointer;
+/* 1.8.1: подразделы группы — пилюли под шапкой; группы — значки (на компьютере в шапке, на телефоне внизу) */
+#tabs{display:flex;gap:4px;overflow-x:auto;padding:2px 14px 10px;max-width:1180px;margin:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:7px 14px;border-radius:12px;cursor:pointer;
   white-space:nowrap;transition:background .25s var(--ease),color .2s,transform .15s}
-nav button:hover{background:var(--card2);color:var(--ink)}
-nav button:active{transform:scale(.96)}
-nav a.navlink{flex:none;color:var(--muted);font-weight:500;padding:8px 14px;border-radius:12px;text-decoration:none;white-space:nowrap;transition:background .2s,color .2s}
-nav a.navlink:hover{background:var(--card2);color:var(--ink)}
-nav button.on{background:var(--grad);color:#fff;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--accent) 70%,transparent)}
+#tabs button:not(.ing){display:none}
+#tabs button:hover{background:var(--card2);color:var(--ink)}
+#tabs button:active{transform:scale(.96)}
+#tabs button.on{background:var(--grad);color:#fff;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--accent) 70%,transparent)}
+body.single #tabs{display:none}
+.groups{display:flex;gap:4px}
+.groups button{border:0;background:none;color:var(--muted);font:inherit;cursor:pointer;border-radius:14px;transition:background .2s,color .2s,transform .12s;
+  display:flex;align-items:center;gap:7px;padding:7px 13px;font-weight:550;white-space:nowrap}
+.groups button .i{font-size:18px;line-height:1}
+.groups button:hover{background:var(--card2);color:var(--ink)}
+.groups button:active{transform:scale(.95)}
+.groups button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+#groupsTop{flex:1;justify-content:center}
+#groupsBot{display:none}
 
-main{max-width:1180px;margin:auto;padding:18px}
+/* нижняя панель: строка ввода сообщения ассистенту на любом разделе */
+:root{--dockH:72px}
+#dock{position:fixed;left:0;right:0;bottom:0;z-index:40;pointer-events:none;padding-bottom:env(safe-area-inset-bottom)}
+#dock > *{pointer-events:auto}
+#chatFrame{display:block;width:min(780px,100% - 24px);margin:0 auto;height:66px;border:0;background:transparent;color-scheme:normal;
+  border-radius:22px 22px 0 0;transition:height .28s var(--ease)}
+#dock.open #chatFrame{box-shadow:0 -10px 40px -10px rgba(15,23,42,.35)}
+#shade{position:fixed;inset:0;z-index:35;background:rgba(10,14,25,.38);opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+#shade.on{opacity:1;visibility:visible}
+@media (max-width:899px){
+  #groupsTop{display:none}
+  .top{padding:10px 14px 4px}.top h1{font-size:16.5px}
+  #tabs{padding:2px 10px 8px}
+  #dock{background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);
+    border-top:1px solid color-mix(in srgb,var(--line) 80%,transparent)}
+  #groupsBot{display:grid;grid-template-columns:repeat(var(--gn,6),1fr);gap:2px;padding:4px 4px 0}
+  #groupsBot button{flex-direction:column;gap:2px;padding:6px 2px 5px;font-size:10.5px;font-weight:600;border-radius:12px;min-width:0}
+  #groupsBot button .i{font-size:21px}
+  #groupsBot button .l{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  #dock.open #groupsBot{display:none}
+  #chatFrame{width:100%;border-radius:0}
+  #dock.open{background:var(--bg)}
+  #dock.open #chatFrame{border-radius:18px 18px 0 0;box-shadow:none}
+}
+main{max-width:1180px;margin:auto;padding:18px 18px calc(var(--dockH) + 24px)}
 section{display:none}
 section.on{display:block;animation:secIn .45s var(--ease)}
 @keyframes secIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -192,7 +224,7 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
 .skel{border-radius:12px;background:linear-gradient(90deg,var(--card2) 25%,color-mix(in srgb,var(--line) 70%,var(--card2)) 50%,var(--card2) 75%);
   background-size:300% 100%;animation:shimmer 1.3s linear infinite;min-height:18px}
 @keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
-.toast{position:fixed;left:12px;right:12px;bottom:20px;margin:0 auto;width:fit-content;max-width:560px;transform:translateY(160%);opacity:0;visibility:hidden;
+.toast{position:fixed;z-index:45;left:12px;right:12px;bottom:calc(var(--dockH) + 10px);margin:0 auto;width:fit-content;max-width:560px;transform:translateY(160%);opacity:0;visibility:hidden;
   background:var(--ink);color:var(--card);border-radius:14px;padding:11px 12px 11px 16px;display:flex;gap:12px;align-items:center;
   box-shadow:0 10px 30px rgba(0,0,0,.25);transition:transform .35s var(--ease),opacity .25s,visibility .35s;z-index:20;font-size:14px}
 .toast.on{transform:translateY(0);opacity:1;visibility:visible}.toast span{flex:1;min-width:0}
@@ -274,12 +306,14 @@ a.btn{text-decoration:none;display:inline-block}
 </head>
 <body>
 <header>
-  <div class="top"><h1>🏠 Семейный <b>ассистент</b></h1><span id="me" class="muted"></span>
-    <form method="post" action="/web/logout"><button title="Выйти">Выйти</button></form></div>
-  <nav id="tabs">
-    <button data-t="home" class="on">🏠 Главная</button><button data-t="fin">💰 Финансы</button><button data-t="food">🍽 Питание</button>
-    <button data-t="hab">📈 Здоровье</button><button data-t="tasks">📝 Дела</button>
-    <button data-t="shop">🛒 Покупки</button><button data-t="house">🏠 Дом</button><button data-t="garage">🏍 Гараж</button><button data-t="trips">🧳 Поездки</button><button data-t="debts">🤝 Долги</button><button data-t="cards">💳 Карты</button><button data-t="hist">🕘 История</button><a class="navlink" href="/web/chat" title="Написать ассистенту, как в Telegram">💬 Чат</a><button data-t="ask">🔎 Спросить</button><button data-t="set">⚙️ Настройки</button>
+  <div class="top"><h1>🏠 Семейный <b>ассистент</b></h1><nav class="groups" id="groupsTop" aria-label="Разделы"></nav><span id="me" class="muted"></span></div>
+  <nav id="tabs" aria-label="Подразделы">
+    <button data-t="home" data-g="home" class="on">🏠 Главная</button>
+    <button data-t="fin" data-g="money">💰 Финансы</button><button data-t="debts" data-g="money">🤝 Долги</button><button data-t="cards" data-g="money">💳 Карты</button>
+    <button data-t="food" data-g="health">🍽 Питание</button><button data-t="hab" data-g="health">📈 Привычки</button>
+    <button data-t="tasks" data-g="tasks">📝 Дела</button><button data-t="shop" data-g="tasks">🛒 Покупки</button>
+    <button data-t="house" data-g="house">🏠 Дом</button><button data-t="garage" data-g="house">🏍 Гараж</button><button data-t="trips" data-g="house">🧳 Поездки</button>
+    <button data-t="hist" data-g="more">🕘 История</button><button data-t="ask" data-g="more">🔎 Спросить</button><button data-t="set" data-g="more">⚙️ Настройки</button>
   </nav>
 </header>
 <main>
@@ -529,6 +563,9 @@ a.btn{text-decoration:none;display:inline-block}
   <div class="card" style="margin-top:14px"><h3>🔌 Интеграции <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px">Что подключено у вас. Ключи и пароли сервисов здесь не вводятся и не показываются.</div>
     <div class="grid g2" style="gap:0 24px" id="sInt"></div></div>
+  <div class="card" style="margin-top:14px"><h3>👤 Аккаунт</h3>
+    <div class="opt"><div class="grow">Вы вошли как <b id="sMe"></b><div class="sub">Вход действует на этом устройстве. Снова войти — команда /web в боте.</div></div>
+      <form method="post" action="/web/logout" id="logoutForm"><button class="btn" type="button" id="logoutBtn">Выйти</button></form></div></div>
   <div class="card" style="margin-top:14px"><h3>🛡 Версия и резервные копии</h3><div id="sSys"></div></div>
 </section>
 
@@ -550,6 +587,11 @@ a.btn{text-decoration:none;display:inline-block}
   <div class="row" style="margin-top:8px"><div class="examples" id="examples"></div><button class="btn pri">Спросить</button></div></form>
   <div class="answer" id="answer"></div></div></section>
 </main>
+<div id="shade" aria-hidden="true"></div>
+<div id="dock">
+  <nav class="groups" id="groupsBot" aria-label="Разделы"></nav>
+  <iframe id="chatFrame" src="/web/chat?embed=1" title="Сообщение ассистенту" allow="microphone; clipboard-write"></iframe>
+</div>
 <div class="toast" id="toast"><span id="toastText"></span><button id="toastBtn" hidden>↩️ Вернуть</button></div>
 
 <script>
@@ -616,10 +658,36 @@ function bars(el, items, max) {
 
 // ---------- вкладки ----------
 const loaded = {};
+// 1.8.1: шесть групп со значками; внутри группы — подразделы
+const GROUPS = [['home', '🏠', 'Главная'], ['money', '💰', 'Деньги'], ['health', '❤️', 'Здоровье'],
+                ['tasks', '✅', 'Дела'], ['house', '🏡', 'Хозяйство'], ['more', '⚙️', 'Ещё']];
+const subs = g => $$(`#tabs button[data-g="${g}"]`).filter(b => !b.hidden);
+let LASTSUB = {}; try { LASTSUB = JSON.parse(localStorage.getItem('subtab') || '{}'); } catch (e) {}
+function renderGroups() {
+  const vis = GROUPS.filter(([g]) => subs(g).length);
+  const html = vis.map(([g, i, l]) => `<button data-g="${g}" title="${l}"><span class="i">${i}</span><span class="l">${l}</span></button>`).join('');
+  ['#groupsTop', '#groupsBot'].forEach(id => { $(id).innerHTML = html; $(id).style.setProperty('--gn', vis.length); });
+  $$('.groups button').forEach(b => b.onclick = () => openGroup(b.dataset.g));
+  const cur = $('#tabs .on'); if (cur) markGroup(cur.dataset.g);
+}
+function markGroup(g) {
+  $$('.groups button').forEach(x => x.classList.toggle('on', x.dataset.g === g));
+  $$('#tabs button').forEach(x => x.classList.toggle('ing', x.dataset.g === g));
+  document.body.classList.toggle('single', subs(g).length < 2);
+}
+function openGroup(g) {
+  const list = subs(g); if (!list.length) return;
+  const b = list.find(x => x.dataset.t === LASTSUB[g]) || list[0];
+  if (b.classList.contains('on')) { window.scrollTo({top: 0, behavior: 'smooth'}); return; }
+  b.click();
+}
 $$('#tabs button').forEach(b => b.onclick = () => {
+  const groupChanged = !$('#tabs .on') || $('#tabs .on').dataset.g !== b.dataset.g;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
   $$('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.t));
-  try { localStorage.setItem('tab', b.dataset.t); } catch (e) {}
+  markGroup(b.dataset.g); LASTSUB[b.dataset.g] = b.dataset.t;
+  try { localStorage.setItem('tab', b.dataset.t); localStorage.setItem('subtab', JSON.stringify(LASTSUB)); } catch (e) {}
+  if (groupChanged) window.scrollTo(0, 0);
   b.scrollIntoView({inline: 'nearest', block: 'nearest', behavior: 'smooth'});
   Promise.resolve(load(b.dataset.t)).finally(() => animateIn(b.dataset.t));
 });
@@ -1315,6 +1383,7 @@ function applyUi(u, live) {
   try { localStorage.setItem('ui', JSON.stringify({theme: u.theme, animations: u.animations})); } catch (e) {}
   html.classList.toggle('noanim', u.animations === false);
   $$('#tabs button').forEach(b => b.hidden = (u.hidden_tabs || []).includes(b.dataset.t));
+  renderGroups();
   if (old !== want) {
     if (want === 'system') delete html.dataset.theme; else html.dataset.theme = want;
     // цвета графиков берутся при загрузке страницы — перезагружаем её, оставаясь на этой вкладке
@@ -1466,14 +1535,73 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js',
   $$('.who').forEach(s => s.innerHTML = ME.family.map(m => `<option value="${m.id}" ${m.id === ME.id ? 'selected' : ''}>${esc(m.name)}</option>`).join(''));
   $('#hWho').innerHTML = '<option value="">Вся семья</option>' + ME.family.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
   $('#tWho').innerHTML = ME.family.map(m => `<option value="${m.id}" ${m.id === ME.id ? 'selected' : ''}>${m.id === ME.id ? 'Мне' : 'Для: ' + esc(m.name)}</option>`).join('');
+  $('#sMe') && ($('#sMe').textContent = ME.name);
   let t = 'home'; try { t = localStorage.getItem('tab') || 'home'; } catch (e) {}
-  const mImp = location.hash.match(/^#import-(\d+)$/);
-  if (mImp) { t = 'fin'; setTimeout(() => showImport(+mImp[1]), 600); }
-  if (/^#cards?(-\d+)?$/.test(location.hash)) t = 'cards';
-  if (location.hash === '#set') { t = 'set'; history.replaceState(null, '', location.pathname); }
+  t = hashTab(location.hash) || t;
   const tb = document.querySelector(`#tabs [data-t="${t}"]`);
   (tb && !tb.hidden ? tb : document.querySelector('#tabs button')).click();
 })();
+// адреса вида /web/#cards, #card-3, #set, #import-5 (ссылки из бота и уведомлений)
+function hashTab(h) {
+  const mImp = h.match(/^#import-(\d+)$/);
+  if (mImp) { setTimeout(() => showImport(+mImp[1]), 600); return 'fin'; }
+  if (/^#cards?(-\d+)?$/.test(h)) return 'cards';
+  if (h === '#set') { history.replaceState(null, '', location.pathname); return 'set'; }
+  const m = h.match(/^#(\w+)$/); if (m && $(`#tabs [data-t="${m[1]}"]`)) { history.replaceState(null, '', location.pathname); return m[1]; }
+  return null;
+}
+function goHash(h) {
+  history.replaceState(null, '', location.pathname + h);
+  const t = hashTab(h); if (!t) return;
+  const b = $(`#tabs [data-t="${t}"]`);
+  if (b.classList.contains('on')) load(t); else b.click();
+}
+addEventListener('hashchange', () => goHash(location.hash));
+
+// ---------- 1.8.1: строка ввода внизу (страница чата в рамке) ----------
+const DOCK = $('#dock'), FRAME = $('#chatFrame'), SHADE = $('#shade');
+let chatH = 66, chatOpen = false, replyTimer = null;
+const toChat = type => { try { FRAME.contentWindow.postMessage({src: 'panel', type}, location.origin); } catch (e) {} };
+function dockLayout() {
+  FRAME.style.height = (chatOpen ? Math.round(innerHeight * (innerWidth >= 900 ? .72 : .84)) : chatH) + 'px';
+  if (!chatOpen) requestAnimationFrame(() => document.documentElement.style.setProperty('--dockH', DOCK.offsetHeight + 'px'));
+}
+function setChat(open, fromPanel) {
+  if (open === chatOpen) return;
+  chatOpen = open; DOCK.classList.toggle('open', open); SHADE.classList.toggle('on', open);
+  document.documentElement.style.overflow = open ? 'hidden' : '';
+  if (fromPanel) toChat(open ? 'open' : 'close');
+  dockLayout();
+}
+addEventListener('message', e => {
+  const d = e.data;
+  if (e.origin !== location.origin || !d || d.src !== 'chat') return;
+  if (d.type === 'size') { chatH = Math.max(50, Math.min(+d.h || 66, 400)); dockLayout(); }
+  if (d.type === 'open') setChat(true);
+  if (d.type === 'close') setChat(false);
+  if (d.type === 'reply') {          // ассистент что-то записал — обновить открытый раздел
+    clearTimeout(replyTimer);
+    replyTimer = setTimeout(() => { const t = $('#tabs .on')?.dataset.t; if (t && t !== 'set' && t !== 'ask') Promise.resolve(load(t)).catch(() => {}); }, 400);
+  }
+  if (d.type === 'nav') {
+    let u; try { u = new URL(d.url); } catch (_) { return; }
+    if (u.origin === location.origin && u.pathname.replace(/\/$/, '') === '/web' && u.hash) { setChat(false, true); goHash(u.hash); }
+    else location.href = u.href;
+  }
+});
+SHADE.onclick = () => setChat(false, true);
+addEventListener('keydown', e => { if (e.key === 'Escape' && chatOpen) setChat(false, true); });
+addEventListener('resize', dockLayout);
+dockLayout();
+// Android-приложение вызывает голосовые колбэки у главной страницы — передаём их в рамку чата
+['onVoiceStarted', 'onVoice', 'onVoiceError', 'onVoicePermission'].forEach(n => window[n] = (...a) => {
+  try { const w = FRAME.contentWindow; w && typeof w[n] === 'function' && w[n](...a); } catch (e) {}
+});
+// «Выйти» — в настройках, с подтверждением, чтобы не нажать случайно
+$('#logoutBtn').onclick = e => { const b = e.target;
+  if (b.dataset.sure) return $('#logoutForm').submit();
+  b.dataset.sure = 1; b.textContent = 'Точно выйти?'; b.classList.add('pri');
+  setTimeout(() => { delete b.dataset.sure; b.textContent = 'Выйти'; b.classList.remove('pri'); }, 4000); };
 </script>
 </body>
 </html>

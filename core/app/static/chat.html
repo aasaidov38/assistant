@@ -8,6 +8,7 @@
 try { const u = JSON.parse(localStorage.getItem('ui') || '{}');
   if (u.theme === 'light' || u.theme === 'dark') document.documentElement.dataset.theme = u.theme;
   if (u.animations === false) document.documentElement.classList.add('noanim'); } catch (e) {}</script>
+<script>if (/[?&]embed\b/.test(location.search) && window.parent !== window) document.documentElement.classList.add('embed');</script>
 <title>Ассистент · чат</title>
 <link rel="manifest" href="/web/manifest.webmanifest">
 <meta name="theme-color" content="#3b82f6">
@@ -100,14 +101,32 @@ main,.chips,footer{width:100%;max-width:780px;margin-left:auto;margin-right:auto
 @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}main{scroll-behavior:auto}}
 .noanim *{animation:none!important;transition:none!important}.noanim main{scroll-behavior:auto}
+/* ---------- 1.8.1: строка ввода внизу панели (страница встроена в /web/) ---------- */
+.grip{display:none}
+.embed body{background:var(--bg)}
+.embed header .back{display:none}
+.embed header .shut{display:inline-block}
+header .shut{display:none;font-size:18px}
+.embed:not(.open) header,.embed:not(.open) main,.embed:not(.open) .chips{display:none}
+.embed:not(.open) .grip{display:flex}
+.embed .grip{justify-content:center;align-items:center;gap:6px;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:11.5px;
+  padding:5px 0 0;cursor:pointer;line-height:1}
+.embed .grip i{width:36px;height:4px;border-radius:2px;background:var(--line)}
+.embed .grip b{font-weight:500}.embed .grip.new b{color:var(--accent)}
+.embed .grip.new i{background:var(--accent)}.embed .grip.new b::after{content:" · новый ответ"}
+.embed header{touch-action:none;cursor:grab;position:relative;padding-top:14px}
+.embed header::before{content:"";position:absolute;top:5px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
+.embed footer{padding-top:6px}
+.embed.open main{scroll-behavior:auto}
 </style>
 </head>
 <body>
 <header>
-  <a href="/web/" aria-label="К панели">← Панель</a>
+  <a class="back" href="/web/" aria-label="К панели">← Панель</a>
   <div class="avatar">✦</div>
   <div class="title"><b>Ассистент</b><small id="sub">пишите как боту в Telegram</small></div>
   <button id="clear" title="Очистить переписку на этом устройстве">🧹</button>
+  <button class="shut" id="shut" title="Свернуть" aria-label="Свернуть переписку">⌄</button>
 </header>
 
 <main id="list"></main>
@@ -119,6 +138,8 @@ main,.chips,footer{width:100%;max-width:780px;margin-left:auto;margin-right:auto
   <button data-t="/undo">↩️ Отменить последнее</button>
   <button data-t="/help">❓ Помощь</button>
 </div>
+
+<button class="grip" id="grip" aria-label="Открыть переписку"><i></i><b id="gripT">переписка</b></button>
 
 <div class="pending" id="pending">
   <div id="pthumb"></div>
@@ -142,6 +163,50 @@ const $ = s => document.querySelector(s);
 const list = $('#list'), text = $('#text'), sendBtn = $('#send');
 const APP = !!(window.Android && window.Android.isApp && (() => { try { return Android.isApp(); } catch (e) { return false; } })());
 const KEY = 'chat-history-v1', MAX = 15 * 1024 * 1024;
+// ---------- 1.8.1: встраивание в панель (строка ввода внизу любого раздела) ----------
+// Панель держит эту страницу в рамке /web/chat?embed=1. Свёрнуто — видна только строка ввода,
+// развёрнуто — переписка снизу на 80% экрана. Панель и страница обмениваются сообщениями postMessage.
+const EMB = (() => {
+  const on = document.documentElement.classList.contains('embed');
+  const tell = (type, data) => { if (on) try { parent.postMessage({src: 'chat', type, ...(data || {})}, location.origin); } catch (e) {} };
+  const isOpen = () => document.documentElement.classList.contains('open');
+  function set(open, quiet) {
+    if (!on || open === isOpen()) return;
+    document.documentElement.classList.toggle('open', open);
+    if (open) { document.getElementById('grip').classList.remove('new'); requestAnimationFrame(() => { const l = document.getElementById('list'); l.scrollTop = l.scrollHeight; }); }
+    if (!quiet) tell(open ? 'open' : 'close');
+    size();
+  }
+  function size() {   // высота строки ввода в свёрнутом виде — панели, чтобы подогнать рамку
+    if (!on) return;
+    const h = ['grip', 'pending', 'chips'].reduce((a, id) => { const e = document.getElementById(id); return a + (e && e.offsetParent ? e.offsetHeight : 0); }, 0)
+      + (document.querySelector('footer') || {offsetHeight: 0}).offsetHeight;
+    tell('size', {h: Math.ceil(h)});
+  }
+  if (on) {
+    addEventListener('message', e => {
+      if (e.origin !== location.origin || !e.data || e.data.src !== 'panel') return;
+      if (e.data.type === 'open') set(true, true);
+      if (e.data.type === 'close') set(false, true);
+      if (e.data.type === 'focus') document.getElementById('text').focus();
+    });
+    addEventListener('keydown', e => { if (e.key === 'Escape') set(false); });
+    addEventListener('DOMContentLoaded', () => {
+      const ro = new ResizeObserver(size);
+      ['footer', '#pending', '#grip'].forEach(q => { const e = document.querySelector(q); e && ro.observe(e); });
+      document.getElementById('grip').onclick = () => set(true);
+      document.getElementById('shut').onclick = () => set(false);
+      // смахнуть шапку переписки вниз — свернуть
+      const hd = document.querySelector('header'); let y0 = null;
+      hd.addEventListener('pointerdown', e => { if (e.target.closest('button,a')) return; y0 = e.clientY; try { hd.setPointerCapture(e.pointerId); } catch (_) {} });
+      hd.addEventListener('pointermove', e => { if (y0 != null && e.clientY - y0 > 50) { y0 = null; set(false); } });
+      hd.addEventListener('pointerup', e => { if (y0 != null && Math.abs(e.clientY - y0) < 6) set(false); y0 = null; });
+      size(); tell('ready');
+    });
+  }
+  return {on, tell, size, open: () => set(true), close: () => set(false),
+          notice: () => { if (on && !isOpen()) document.getElementById('grip').classList.add('new'); }};
+})();
 let history = [], pending = null, busy = false, recording = false, recTimer = null, recStart = 0;
 
 // ---------- безопасный показ HTML из ядра (как в Telegram: b, i, u, s, code, pre, a, blockquote) ----------
@@ -215,6 +280,7 @@ function add(m) {
   m.id = m.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
   if (!history.length) list.innerHTML = '';
   history.push(m); list.appendChild(bubble(m)); save(); scrollDown();
+  if (m.from !== 'me') EMB.notice();
   return m;
 }
 function scrollDown() { requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; }); }
@@ -247,18 +313,21 @@ function setBusy(b) { busy = b; sendBtn.disabled = b && !recording; typing(b); }
 
 async function send(body, mine) {
   if (busy) return;
+  EMB.open();
   add(mine);
   setBusy(true);
   try {
     const r = await api('send', body);
     add({from: 'bot', html: r.text, buttons: r.buttons});
+    EMB.tell('reply');
   } catch (e) { fail(e); }
   setBusy(false);
 }
 
 async function press(m, b, btn) {
   if (b.url) {
-    if (APP && !b.url.startsWith(location.origin)) Android.openExternal(b.url); else location.href = b.url;
+    if (EMB.on && b.url.startsWith(location.origin)) EMB.tell('nav', {url: b.url});
+    else if (APP && !b.url.startsWith(location.origin)) Android.openExternal(b.url); else location.href = b.url;
     return;
   }
   if (!b.action || busy) return;
@@ -272,6 +341,7 @@ async function press(m, b, btn) {
       const el = list.querySelector(`[data-id="${m.id}"]`); if (el) fill(el, m);
       save();
     }
+    EMB.tell('reply');
   } catch (e) { fail(e); btn.disabled = false; }
   setBusy(false);
 }
