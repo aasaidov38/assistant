@@ -14,6 +14,7 @@ KINDS = {
     "steps":  ("👟", "Шаги", "", Decimal(8000), "max"),
     "weight": ("⚖️", "Вес", "кг", None, "last"),
     "sleep":  ("😴", "Сон", "ч", Decimal(8), "sum"),
+    "pulse":  ("❤️", "Пульс", "уд/мин", None, "last"),   # 1.9: средний за день, из Health Connect
 }
 
 
@@ -122,6 +123,10 @@ async def today_text(user: User) -> str:
                 delta = f" ({'+' if dv > 0 else '−'}{abs(dv):.1f} за неделю)".replace(".", ",")
             goal = f", цель {fmt(kind, g['weight'])}" if g.get("weight") else ""
             text += f"{e} {name}: {fmt(kind, w)}{delta}{goal}\n"
+            continue
+        if kind == "pulse":
+            if v:
+                text += f"{e} {name}: {fmt(kind, v)} (в среднем за день, с телефона)\n"
             continue
         goal = g.get(kind)
         text += f"{e} {name}: {fmt(kind, v or 0)}" + (f" из {fmt(kind, goal)}  {_bar(v, goal)}" if goal else "") + "\n"

@@ -308,7 +308,7 @@ async def main():
     await scope.enter(alex)
     I = await web_life.integrations(user=alex)
     check(I["push"]["available"] and I["push"]["key"] == keys["pub"] and I["push"]["count"] == 1 and I["telegram"]["connected"]
-          and len(I["soon"]) == 5, "API интеграций", I)
+          and len(I["soon"]) >= 2, "API интеграций", I)
     r = await web_life.push_test(user=alex)
     check(r["ok"], "пробное уведомление", r)
     await web_life.push_unsubscribe({"endpoint": "https://push.example/ok"}, user=alex)

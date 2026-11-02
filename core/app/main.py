@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from . import alice, analytics, brain, mobile, release, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
+from . import alice, analytics, brain, device_api, mobile, release, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
 from .config import get_settings
 from .schemas import Action, Inbound, Reply
 from .util import esc, today
@@ -48,6 +48,7 @@ app.include_router(web_life.router) # панель: платежи, выписк
 app.include_router(mobile.router)   # чат /web/chat для панели и Android-приложения (1.7.1)
 app.include_router(alice.router)    # Яндекс Алиса /alice/<секрет>
 app.include_router(site.router)     # сайт проекта: / и /site/* (1.7.2)
+app.include_router(device_api.router)  # телефоны: здоровье, банки, баланс SIM (1.9)
 
 
 def api_key(x_api_key: str = Header(default="")) -> None:
