@@ -213,6 +213,8 @@ dialog .x{position:fixed;top:14px;right:16px;border:0;background:rgba(255,255,25
 .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .apps .card h3{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .apps .card p{font-size:15px;color:var(--ink2)}
+.apps .card p+p{margin-top:12px}
+.apps .card .note{font-size:13px}
 .st{font:600 11.5px var(--f-mono);padding:2px 8px;border-radius:6px;margin-left:auto}
 .st.ok{background:var(--good-soft);color:var(--good)}
 .st.plan{background:var(--signal-soft);color:var(--signal)}
@@ -268,6 +270,7 @@ footer{margin-top:60px;padding:24px 0;border-top:1px solid var(--line);display:f
         <div class="row">
           <a class="btn pri" href="#examples">Посмотреть примеры</a>
           <a class="btn" href="#roadmap">Что будет дальше</a>
+          <a class="btn" href="#apps">⬇️ Приложение для Android</a>
         </div>
         <div class="facts" aria-label="Проект в цифрах">
           <div class="fact"><b>13</b><span>разделов хозяйства</span></div>
@@ -410,7 +413,9 @@ footer{margin-top:60px;padding:24px 0;border-top:1px solid var(--line);display:f
       <h2>На телефоне</h2>
       <div class="apps">
         <div class="card"><h3>📱 Android <span class="st ok">работает</span></h3>
-          <p>Приложение открывает панель и чат без адресной строки. Можно поделиться в него фото чека или PDF-выпиской из любого приложения и надиктовать голосовое. С версии 1.9 оно само присылает шаги, сон и пульс, траты из уведомлений банков и баланс обеих SIM-карт.</p></div>
+          <p>Приложение открывает панель и чат без адресной строки. Можно поделиться в него фото чека или PDF-выпиской из любого приложения и надиктовать голосовое. С версии 1.9 оно само присылает шаги, сон и пульс, траты из уведомлений банков и баланс обеих SIM-карт.</p>
+          <p><a class="btn pri" href="/site/Assistant.apk" download>⬇️ Скачать APK · 1.9.6</a></p>
+          <p class="note">Android 10 и новее. Новая версия ставится поверх старой, данные не теряются. Если телефон спросит — разрешите установку «из этого источника»; на предупреждение Play Защиты: «Подробнее → Всё равно установить».</p></div>
         <div class="card"><h3>🍏 iPhone <span class="st ok">веб-приложение</span></h3>
           <p>Safari → «Поделиться» → «На экран Домой»: панель открывается как приложение и присылает push-уведомления (iOS 16.4+). В версии 1.11 «Быстрые команды» будут отправлять SMS банков и данные из «Здоровья». Отдельное приложение из App Store не планируется.</p></div>
         <div class="card"><h3>⌚ Mi Fitness <span class="st ok">с версии 1.9</span></h3>
@@ -517,7 +522,7 @@ const LOG = [
   ['1.9', 'Данные с телефона', '02.11.2026', ['Шаги, сон, вес и пульс из Mi Fitness через Health Connect',
     'Траты из уведомлений и SMS Сбера, Т-Банка, ВТБ и Альфа-Банка — без дублей с ручным вводом (включается в настройках)',
     'Остатки по картам в «Финансах»; от карты хранятся только 4 последние цифры', 'Баланс обеих SIM-карт и напоминание о пополнении',
-    'Личный ключ для каждого телефона, отзыв в «Интеграциях»', 'Новое приложение для Android'], true],
+    'Личный ключ для каждого телефона, отзыв в «Интеграциях»', 'Новое приложение для Android', 'С 1.9.1 приложение скачивается прямо с этого сайта, без GitHub'], true],
   ['1.8.1', 'Строка ввода везде', '02.11.2026', ['Сообщение ассистенту можно написать с любого раздела панели, ответ выезжает снизу',
     'Разделы собраны в 6 групп со значками', '«Выйти» перенесено в настройки']],
   ['1.8', 'Обновления по кнопке и карты', '01.11.2026', ['Ассистент сам сообщает о новой версии и обновляется по кнопке, при сбое возвращает прежнюю',
