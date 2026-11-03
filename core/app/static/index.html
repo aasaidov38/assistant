@@ -337,6 +337,7 @@ a.btn{text-decoration:none;display:inline-block}
     <div class="card"><h3>📝 Мои дела на сегодня</h3><ul class="list" id="homeTasks"></ul>
       <button class="btn sm" style="margin-top:8px" onclick="document.querySelector('#tabs [data-t=tasks]').click()">Все дела →</button></div>
     <div class="card"><h3>📊 Сегодня</h3><div id="homeToday"></div></div>
+    <div class="card" id="homeMarket"><h3>📈 Рынок</h3><div class="skel" style="height:120px"></div></div>
   </div>
   <div class="card" style="margin-top:12px"><h3>🌤 Прогноз</h3>
     <div class="hours" id="wxHours"></div><div class="days" id="wxDays"></div></div>
@@ -358,6 +359,7 @@ a.btn{text-decoration:none;display:inline-block}
     <div class="card"><h3>Доходы и расходы за полгода</h3><div class="ch"><canvas id="cMon"></canvas></div></div>
     <div class="card"><h3>Кто сколько внёс</h3><div id="people"></div></div>
   </div>
+  <div class="card" style="margin-top:12px" id="finMarket"><h3>📈 Рынок</h3><div class="skel" style="height:140px"></div></div>
   <div class="grid" style="margin-top:12px">
     <div class="card"><h3>💳 Регулярные платежи</h3><div id="billsSum" class="muted"></div><ul class="list" id="billsList"></ul>
       <details class="add"><summary>➕ Добавить платёж</summary><form id="billForm" class="fgrid">
@@ -556,6 +558,14 @@ a.btn{text-decoration:none;display:inline-block}
     <div class="card"><h3>🎯 Мои цели <span class="saved" data-saved>✓ Сохранено</span></h3>
       <div class="goals" id="sGoals"></div>
       <div class="muted" style="font-size:12.5px;margin-top:10px">Пустое поле — цели нет. Цели видны на главной, в утренней сводке и недельном разборе.</div></div>
+    <div class="card"><h3>📍 Город и рынок <span class="saved" data-saved>✓ Сохранено</span></h3>
+      <div class="opt"><div class="grow">Базовый город<div class="sub" id="sCityNow"></div></div><button class="btn sm" id="sCityReset" hidden>Вернуть общий</button></div>
+      <div class="hrow" style="gap:6px;margin-top:6px"><input id="sCityQ" placeholder="Название города" style="flex:1"><button class="btn sm" id="sCityGo">Найти</button></div>
+      <div id="sCityRes"></div>
+      <div class="muted" style="font-size:12.5px;margin-top:8px">Для погоды, магнитных бурь и пыльцы на главной и в утренней сводке. Данные о пыльце есть только для городов Европы и только в сезон пыления — для остальных этот блок не показывается.</div>
+      <h3 style="margin-top:14px">📈 Что показывать в «Рынке»</h3>
+      <div class="tabsel" id="sMarket"></div>
+      <div class="muted" style="font-size:12.5px;margin-top:8px">Индексы, ключевая ставка и инфляция показываются всегда. Цифры справочные, это не рекомендация.</div></div>
   </div>
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
@@ -733,6 +743,7 @@ $('#txMore').onclick = () => { $('#tx').dataset.all = '1'; loadFin(); };
 $('#mPrev').onclick = () => { month.setMonth(month.getMonth() - 1); loadFin(); };
 $('#mNext').onclick = () => { month.setMonth(month.getMonth() + 1); loadFin(); };
 async function loadFin() {
+  loadMarket();
   $('#mName').textContent = MONTHS[month.getMonth()] + ' ' + month.getFullYear();
   const prevM = new Date(month); prevM.setMonth(prevM.getMonth() - 1);
   const [d, pd] = await Promise.all([api('finance?month=' + ym(month)), api('finance?month=' + ym(prevM))]);
@@ -1168,12 +1179,13 @@ async function loadDash() {
 }
 async function loadHome() {
   loadDash().catch(e => console.warn(e));
+  loadMarket();
   const [h, w] = await Promise.all([api('home'), api('weather').catch(() => null)]);
   if (w) {
     const n = w.now, ic = (n.text || '🌡').split(' ')[0];
     $('#wxNow').innerHTML = `<h3>${esc(w.place)}, сейчас</h3><div class="big"><span class="ic">${ic}</span><span class="t">${t1(n.temp)}</span>
       <span>${esc((n.text || '').split(' ').slice(1).join(' '))}<div class="muted">ощущается ${t1(n.feels)}</div></span></div>
-      <div class="meta">💨 ветер ${Math.round(n.wind)} м/с · 💧 влажность ${n.humidity}%<br>🌅 ${w.days[0]?.sunrise || ''} · 🌇 ${w.days[0]?.sunset || ''}</div>`;
+      <div class="meta">💨 ветер ${Math.round(n.wind)} м/с · 💧 влажность ${n.humidity}%<br>🌅 ${w.days[0]?.sunrise || ''} · 🌇 ${w.days[0]?.sunset || ''}</div>${wxExtra(w)}`;
     $('#wxHours').innerHTML = w.hours.map(x => `<div>${x.time}<b>${x.icon}</b>${t1(x.temp)}${x.rain ? '<div class="muted">💧' + x.rain + '%</div>' : ''}</div>`).join('');
     const lo = Math.min(...w.days.map(d => d.min)), hi = Math.max(...w.days.map(d => d.max)), span = Math.max(hi - lo, 1);
     $('#wxDays').innerHTML = w.days.map((d, i) => { const dt = new Date(d.date + 'T12:00');
@@ -1432,6 +1444,7 @@ async function loadSettings() {
           g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); flash(g); applyModes(); }
         catch (e) { toast('⚠️ ' + errText(e).slice(0, 200)); } }; }); });
   if (SET.system) renderSys(SET.system);
+  renderCity(); renderMarketSet();
   loadInt();
 }
 // ---------- интеграции (1.8) ----------
@@ -1525,6 +1538,91 @@ function applyModes() {
   $('#food .who').hidden = p('nutrition'); $('#hab .who').hidden = p('habits') && p('meds');
   const pc = $('#people')?.closest('.card'); if (pc) pc.hidden = p('finance');
   const nt = $('#notes')?.closest('.card')?.querySelector('h3'); if (nt) nt.textContent = p('notes') ? '🗒 Мои заметки' : '🗒 Заметки семьи';
+}
+
+
+// ---------- 1.10: магнитные бури, пыльца, рынок ----------
+function wxExtra(w) {
+  let x = '';
+  if (w.storm) {
+    const st = w.storm, d0 = new Date((w.days[0] || {}).date + 'T12:00'), nm = ['сегодня', 'завтра', 'послезавтра'];
+    x += `<div class="meta" style="margin-top:6px" id="wxStorm">🧲 Магнитное поле: Kp ${st.now.kp} — ${esc(st.now.label)}<br>${st.days.map(d => {
+      const k = Math.round((new Date(d.date + 'T12:00') - d0) / 864e5);
+      return `${nm[k] || dm(d.date)} ${d.storm ? '<b style="color:var(--bad)">⚠️ ' + d.max + '</b>' : d.max}`; }).join(' · ')}</div>`;
+  }
+  if (w.pollen) x += `<div class="meta" style="margin-top:6px" id="wxPollen">🌿 Пыльца: ${w.pollen.items.length
+    ? w.pollen.items.slice(0, 3).map(i => `${esc(i.name)} — ${esc(i.label)}`).join(', ') : 'в воздухе почти нет'}</div>`;
+  return x;
+}
+const pctF = v => v == null ? '' : `<span style="color:${v > 0 ? 'var(--good-ink)' : v < 0 ? 'var(--bad)' : 'var(--muted)'}">${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2).replace('.', ',')}%</span>`;
+const numF = (v, d = 2) => v == null ? '–' : v.toLocaleString('ru-RU', {minimumFractionDigits: d, maximumFractionDigits: d});
+function spark(series, w = 84, h = 26) {
+  if (!series || series.length < 2) return '';
+  const lo = Math.min(...series), hi = Math.max(...series), sp = Math.max(hi - lo, 1e-9);
+  const pts = series.map((v, i) => `${(i * w / (series.length - 1)).toFixed(1)},${(h - 3 - (v - lo) * (h - 6) / sp).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${series[series.length - 1] >= series[0] ? 'var(--good)' : 'var(--bad)'}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+const monthName = ym => new Date(ym + '-01T12:00').toLocaleDateString('ru-RU', {month: 'long'});
+function marketCompact(M) {
+  if (M.empty) return '<div class="empty">Данные пока не загрузились</div>';
+  const fx = c => M.fx.items.find(x => x.code === c), cr = c => M.crypto.items.find(x => x.code === c);
+  const line = (name, val, ch, sp) => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span class="grow">${esc(name)}</span>${sp || ''}<b>${val}</b><span style="min-width:62px;text-align:right;font-size:13px">${ch}</span></div>`;
+  let h = '';
+  for (const c of ['USD', 'EUR']) { const x = fx(c); if (x) h += line(c, numF(x.value) + ' ₽', pctF(x.change_pct)); }
+  const b = cr('BTC'); if (b) h += line('BTC', '$' + numF(b.usd, 0), pctF(b.change_pct));
+  h += M.indices.items.map(i => line(i.name.replace(' Composite', ''), numF(i.value, 0), pctF(i.day_pct), spark(i.series, 56, 20))).join('');
+  const m = M.macro;
+  if (m.key_rate != null || m.inflation != null) h += `<div class="muted" style="font-size:13px;margin-top:8px">${m.key_rate != null ? 'Ключевая ставка ' + numF(m.key_rate) + '%' : ''}${m.key_rate != null && m.inflation != null ? ' · ' : ''}${m.inflation != null ? 'инфляция ' + numF(m.inflation) + '%' : ''}</div>`;
+  if (M.fx.stale || M.indices.stale || M.crypto.stale) h += '<div class="muted" style="font-size:12px;margin-top:4px">⚠️ Часть данных не обновилась</div>';
+  return h + '<button class="btn sm" style="margin-top:8px" onclick="document.querySelector(\'#tabs [data-t=fin]\').click()">Подробнее в «Деньгах» →</button>';
+}
+function marketFull(M) {
+  if (M.empty) return '<div class="empty">Данные рынка пока не загрузились — загляните через несколько минут</div>';
+  const m = M.macro, tr = (name, val, ch, sp, sub) => `<tr><td>${esc(name)}${sub ? `<div class="muted">${sub}</div>` : ''}</td><td class="num"><b>${val}</b></td><td class="num">${ch}</td><td class="num">${sp || ''}</td></tr>`;
+  let h = '';
+  if (m.key_rate != null || m.inflation != null) h += '<div class="kpis" style="margin:4px 0 12px">'
+    + (m.key_rate != null ? `<div class="card kpi"><div class="l">Ключевая ставка ЦБ</div><div class="v">${numF(m.key_rate)}%</div>${m.key_rate_date ? `<div class="muted" style="font-size:12px">на ${dmy(m.key_rate_date)}</div>` : ''}</div>` : '')
+    + (m.inflation != null ? `<div class="card kpi"><div class="l">Инфляция в России</div><div class="v">${numF(m.inflation)}%</div><div class="muted" style="font-size:12px">за ${monthName(m.inflation_month)}, к году ранее${m.target ? ' · цель ' + numF(m.target, 0) + '%' : ''}</div></div>` : '') + '</div>';
+  if (M.indices.items.length) h += '<h3 style="margin-top:10px">Индексы</h3><div class="scroll"><table>' + M.indices.items.map(i => tr(i.name, numF(i.value, 2), pctF(i.day_pct), spark(i.series), `за месяц ${pctF(i.month_pct)} · на ${dmy(i.date)}`)).join('') + '</table></div>';
+  if (M.fx.items.length) h += `<h3 style="margin-top:14px">Курсы ЦБ РФ${M.fx.date ? ' на ' + dmy(M.fx.date) : ''}</h3><div class="scroll"><table>` + M.fx.items.map(x => tr(x.name, numF(x.value) + ' ₽', pctF(x.change_pct))).join('') + '</table></div>';
+  if (M.crypto.items.length) h += '<h3 style="margin-top:14px">Криптовалюты <span class="muted" style="font-weight:400;font-size:12px">за сутки</span></h3><div class="scroll"><table>' + M.crypto.items.map(x => tr(x.name + ' ' + x.code, '$' + numF(x.usd, x.usd < 10 ? 3 : 2), pctF(x.change_pct), '', x.rub ? '≈ ' + numF(x.rub, 0) + ' ₽' : '')).join('') + '</table></div>';
+  if (M.fx.stale || M.indices.stale || M.crypto.stale || M.macro.stale) h += '<div class="muted" style="font-size:12.5px;margin-top:8px">⚠️ Источник временно недоступен — показаны последние сохранённые данные.</div>';
+  return h + '<div class="muted" style="font-size:12px;margin-top:10px">Справочно, не рекомендация. Источники: ЦБ РФ, Мосбиржа, Stooq или Yahoo Finance, CoinGecko или Binance. Индексы могут отставать от биржи.</div>';
+}
+let MKT = null;
+async function loadMarket() {
+  if (MKT && Date.now() - MKT.at < 20000) return paintMarket(MKT.data);
+  try { const M = await api('market'); MKT = {at: Date.now(), data: M}; paintMarket(M); }
+  catch (e) { $('#homeMarket').innerHTML = '<h3>📈 Рынок</h3><div class="empty">Сейчас недоступен</div>'; }
+}
+function paintMarket(M) {
+  $('#homeMarket').innerHTML = '<h3>📈 Рынок</h3>' + marketCompact(M);
+  $('#finMarket').innerHTML = '<h3>📈 Рынок</h3>' + marketFull(M);
+}
+// настройки: базовый город и состав «Рынка»
+function renderCity() {
+  const m = SET.me;
+  $('#sCityNow').textContent = m.city ? m.city.label : `${m.default_place} (общий для семьи)`;
+  $('#sCityReset').hidden = !m.city;
+  $('#sCityReset').onclick = async e => { await saveSet({city: null}, e.target.closest('.card')); renderCity(); MKT = null; };
+  const go = async () => {
+    const q = $('#sCityQ').value.trim(); if (q.length < 2) return;
+    $('#sCityRes').innerHTML = '<div class="muted" style="margin-top:6px">Ищу…</div>';
+    try {
+      const r = await api('city/search?q=' + encodeURIComponent(q));
+      $('#sCityRes').innerHTML = r.length ? r.map((c, i) => `<div class="opt"><div class="grow">${esc(c.label)}</div><button class="btn sm" data-city="${i}">Выбрать</button></div>`).join('')
+        : '<div class="muted" style="margin-top:6px">Ничего не нашлось — попробуйте иначе</div>';
+      $$('[data-city]').forEach(b => b.onclick = async () => { const c = r[+b.dataset.city];
+        await saveSet({city: {name: c.name, label: c.label, lat: c.lat, lon: c.lon, tz: c.tz}}, b.closest('.card'));
+        $('#sCityRes').innerHTML = ''; $('#sCityQ').value = ''; renderCity(); });
+    } catch (e) { $('#sCityRes').innerHTML = '<div class="muted" style="margin-top:6px">⚠️ ' + esc(errText(e)).slice(0, 120) + '</div>'; }
+  };
+  $('#sCityGo').onclick = go; $('#sCityQ').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+function renderMarketSet() {
+  const m = SET.me, hid = m.market_hidden || [];
+  $('#sMarket').innerHTML = (m.market_catalog || []).map(c => `<label><input type="checkbox" value="${c.code}" ${hid.includes(c.code) ? '' : 'checked'}>${esc(c.name)}</label>`).join('');
+  $$('#sMarket input').forEach(i => i.onchange = async () => { await saveSet({market_hidden: $$('#sMarket input').filter(x => !x.checked).map(x => x.value)}, i.closest('.card')); MKT = null; });
 }
 
 // ---------- старт ----------

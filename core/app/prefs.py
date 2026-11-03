@@ -8,7 +8,7 @@ import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
-from . import db, ticktick, users
+from . import db, market, ticktick, users
 from .config import get_settings
 from .util import now
 
@@ -23,6 +23,7 @@ TOPICS = {
     "tasks":  "📝 Выполнение дел, которые вы поручили",
     "budget": "🎯 Лимиты и траты других",
     "updates": "🆕 Новые версии и «что нового»",
+    "storm":  "🧲 Магнитные бури в утренней сводке (когда Kp от 5)",
 }
 TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "📈 Привычки и лекарства", "tasks": "📝 Дела", "shop": "🛒 Покупки",
         "house": "🏠 Дом", "garage": "🏍 Гараж", "trips": "🧳 Поездки", "debts": "🤝 Долги", "cards": "💳 Карты", "hist": "🕘 История",
@@ -30,7 +31,9 @@ TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "�
 DEFAULTS = {"theme": "system", "animations": True, "hidden_tabs": [],
             "notify": {k: True for k in TOPICS},
             "quiet": {"on": False, "from": "22:00", "to": "08:00"},
-            "mirror": True}
+            "mirror": True,
+            "city": None,            # 1.10: базовый город {name, label, lat, lon, tz}; пусто — общий из .env
+            "market_hidden": []}     # 1.10: коды курсов, которые человек скрыл в карточке «Рынок»
 GOALS = {"kcal": ("🔥 Калории", "ккал"), "water": ("💧 Вода", "мл"), "steps": ("👟 Шаги", ""),
          "weight": ("⚖️ Целевой вес", "кг"), "sleep": ("😴 Сон", "ч")}
 _TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
@@ -42,7 +45,34 @@ def _merge(raw: dict | None) -> dict:
     out["notify"] = {**DEFAULTS["notify"], **{k: bool(v) for k, v in (raw.get("notify") or {}).items() if k in TOPICS}}
     out["quiet"] = {**DEFAULTS["quiet"], **(raw.get("quiet") or {})}
     out["hidden_tabs"] = [t for t in out.get("hidden_tabs") or [] if t in TABS]
+    out["city"] = _city(out.get("city"))
+    out["market_hidden"] = market.clean_hidden(out.get("market_hidden"))
     return out
+
+
+def _city(c) -> dict | None:
+    """Проверенный город или None."""
+    if not isinstance(c, dict):
+        return None
+    try:
+        lat, lon = round(float(c["lat"]), 4), round(float(c["lon"]), 4)
+        name = str(c.get("name") or "").strip()[:60]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not name or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return {"name": name, "label": str(c.get("label") or name).strip()[:100], "lat": lat, "lon": lon,
+            "tz": str(c.get("tz") or "")[:40]}
+
+
+async def location(user_id: int) -> dict:
+    """Где человеку показывать погоду, бури и пыльцу: его базовый город или общий из .env."""
+    c = (await get(user_id)).get("city")
+    if c:
+        return {**c, "custom": True}
+    cfg = get_settings()
+    return {"name": cfg.weather_place, "label": cfg.weather_place, "lat": cfg.weather_lat, "lon": cfg.weather_lon,
+            "tz": cfg.tz, "custom": False}
 
 
 async def get(user_id: int) -> dict:
@@ -91,7 +121,8 @@ async def full(user: users.User) -> dict:
     goals["kcal"] = row["kcal_goal"] or cfg.default_kcal_goal
     tt = await ticktick.token_info(user.id)
     dd = row["digest_day"] if row["digest_day"] is not None else cfg.weekly_digest_day
-    return {**s,
+    cfg2 = get_settings()
+    return {**s, "default_place": cfg2.weather_place, "market_catalog": [{"code": c, "name": market.NAMES[c]} for c in market.ALL_CODES],
             "morning": {"on": row["morning_enabled"], "time": mt.strftime("%H:%M")},
             "digest": {"on": row["weekly_digest"] and dd >= 0, "day": max(dd, 0) if dd is not None else 6,
                        "hour": row["digest_hour"] if row["digest_hour"] is not None else cfg.weekly_digest_hour},
@@ -123,6 +154,10 @@ async def update(user: users.User, patch: dict) -> dict:
                 s["quiet"][k] = f"{t.hour:02d}:{t.minute:02d}"
     if "mirror" in p:
         s["mirror"] = bool(p["mirror"])
+    if "city" in p:
+        s["city"] = _city(p["city"])          # None или пустое значение — вернуться к общему городу
+    if isinstance(p.get("market_hidden"), list):
+        s["market_hidden"] = market.clean_hidden(p["market_hidden"])
     await pool.execute("UPDATE users SET settings=$2::jsonb WHERE id=$1", user.id, s)
 
     if isinstance(p.get("morning"), dict):

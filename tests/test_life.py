@@ -269,7 +269,7 @@ async def main():
     check("Витамин D" in r.text and sql("select dept from shopping_items where title='Витамин D'") == "аптека", "в список покупок (отдел «аптека»)", r.text)
     set_now(datetime(2026, 11, 3, 21, 0, 30, tzinfo=Z)); SENT.clear(); await meds.send_due()
     iid = sql("select max(id) from med_intakes")
-    sql(f"update med_intakes set last_sent_at = now() - interval '50 minutes' where id={iid}")
+    sql(f"update med_intakes set last_sent_at = '{asyncpg.FAKE_NOW.isoformat()}'::timestamptz - interval '50 minutes' where id={iid}")   # от подставного «сейчас», а не от реального времени
     SENT.clear(); await meds.send_due()
     check(any("ещё раз" in t for _, t, _ in SENT), "нет ответа 45 минут — повтор", SENT)
     r = await say(alex, "принял витамин D")
@@ -313,7 +313,7 @@ async def main():
     # ---------------- Общее ----------------
     print("Общее")
     set_now(datetime(2026, 11, 3, 7, 30, tzinfo=Z))
-    morning.weather = lambda: asyncio.sleep(0, result="")
+    morning.weather = lambda *a, **k: asyncio.sleep(0, result="")
     r = await morning.build(alex)
     check("💊 Сегодня: 21:00 Витамин D" in r.text and "🔧" in r.text, "утренняя сводка: лекарства и гараж", r.text[-500:])
     ops = await undo.history(1, days=60)

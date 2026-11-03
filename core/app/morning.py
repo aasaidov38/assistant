@@ -1,6 +1,7 @@
 """Утренняя сводка: погода, дела на сегодня, вчерашнее питание, бюджет, покупки, привычки.
 
-Погода берётся с open-meteo.com: бесплатно и без ключа. Место задаётся в .env (WEATHER_LAT, WEATHER_LON).
+Погода берётся с open-meteo.com: бесплатно и без ключа. Место — базовый город человека (⚙️ Настройки), а если он
+не выбран, общий из .env (WEATHER_LAT, WEATHER_LON). С 1.10 в сводке есть строка о магнитной буре (при Kp от 5).
 """
 import logging
 import re
@@ -8,7 +9,7 @@ from datetime import datetime, time, timedelta
 
 import httpx
 
-from . import budgets, db, finance, habits, notify, nutrition, scope, shopping, users
+from . import budgets, db, envdata, finance, habits, notify, nutrition, prefs, scope, shopping, users
 from .config import get_settings
 from .schemas import Reply
 from .util import WEEKDAYS, esc, now, today
@@ -25,18 +26,28 @@ WMO = {0: "☀️ ясно", 1: "🌤 преимущественно ясно", 
        96: "⛈ гроза с градом", 99: "⛈ сильная гроза с градом"}
 
 
-_cache: dict = {"at": 0.0, "data": None}
+_cache: dict = {}
+_offsets: dict = {}      # смещение местного времени от UTC по местам, секунды
 
 
-async def forecast() -> dict | None:
-    """Погода сейчас, по часам на сутки и на 7 дней. Кешируется на 15 минут."""
+def _default_loc() -> dict:
+    s = get_settings()
+    return {"name": s.weather_place, "lat": s.weather_lat, "lon": s.weather_lon, "tz": s.tz, "custom": False}
+
+
+async def forecast(loc: dict | None = None) -> dict | None:
+    """Погода сейчас, по часам на сутки и на 7 дней для места loc. Кешируется на 15 минут для каждого места."""
     import time as _t
-    if _cache["data"] and _t.time() - _cache["at"] < 900:
-        return _cache["data"]
+    loc = loc or _default_loc()
+    key = (round(loc["lat"], 2), round(loc["lon"], 2))
+    c0 = _cache.get(key)
+    if c0 and _t.time() - c0[0] < 900:
+        return c0[1]
     s = get_settings()
     try:
         r = await _client.get("https://api.open-meteo.com/v1/forecast", params={
-            "latitude": s.weather_lat, "longitude": s.weather_lon, "timezone": s.tz, "forecast_days": 7,
+            "latitude": loc["lat"], "longitude": loc["lon"], "timezone": "auto" if loc.get("custom") else s.tz,
+            "forecast_days": 7,
             "wind_speed_unit": "ms",
             "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,precipitation",
             "hourly": "temperature_2m,weather_code,precipitation_probability",
@@ -47,11 +58,11 @@ async def forecast() -> dict | None:
         log.warning("Погода недоступна: %s", e)
         return None
     c, d, h = j.get("current") or {}, j.get("daily") or {}, j.get("hourly") or {}
-    now_s = now().strftime("%Y-%m-%dT%H:00")
+    now_s = (c.get("time") or now().strftime("%Y-%m-%dT%H:00"))[:13] + ":00"       # местное время выбранного города
     times = h.get("time") or []
     i0 = next((i for i, t in enumerate(times) if t >= now_s), 0)
     data = {
-        "place": s.weather_place,
+        "place": loc["name"], "utc_offset": j.get("utc_offset_seconds") or 0,
         "now": {"temp": c.get("temperature_2m"), "feels": c.get("apparent_temperature"), "code": c.get("weather_code"),
                 "text": WMO.get(c.get("weather_code"), ""), "wind": c.get("wind_speed_10m"),
                 "humidity": c.get("relative_humidity_2m")},
@@ -65,19 +76,22 @@ async def forecast() -> dict | None:
                   "sunrise": (d.get("sunrise") or [""] * 7)[i][11:16], "sunset": (d.get("sunset") or [""] * 7)[i][11:16]}
                  for i in range(len(d.get("time") or []))],
     }
-    _cache.update(at=_t.time(), data=data)
+    _cache[key] = (_t.time(), data)
     return data
 
 
-async def weather() -> str:
+async def weather(loc: dict | None = None) -> str:
     s = get_settings()
+    loc = loc or _default_loc()
     try:
         r = await _client.get("https://api.open-meteo.com/v1/forecast", params={
-            "latitude": s.weather_lat, "longitude": s.weather_lon, "timezone": s.tz, "forecast_days": 1,
+            "latitude": loc["lat"], "longitude": loc["lon"], "timezone": "auto" if loc.get("custom") else s.tz, "forecast_days": 1,
             "wind_speed_unit": "ms",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"})
         r.raise_for_status()
-        d = {k: v[0] for k, v in r.json()["daily"].items()}
+        j = r.json()
+        _offsets[(round(loc["lat"], 2), round(loc["lon"], 2))] = j.get("utc_offset_seconds") or 0
+        d = {k: v[0] for k, v in j["daily"].items()}
     except Exception as e:
         log.warning("Погода недоступна: %s", e)
         return ""
@@ -92,7 +106,31 @@ async def weather() -> str:
         hint = " 🧣 очень холодно"
     elif d["weather_code"] >= 51 and d["weather_code"] not in (71, 73, 75, 77, 85, 86):
         hint = " ☂️ возьмите зонт"
-    return f"{esc(s.weather_place)}: {text}{hint}"
+    return f"{esc(loc['name'])}: {text}{hint}"
+
+
+async def storm_line(user_id: int, offset_s: int = 0) -> str:
+    """Строка о магнитной буре на сегодня и завтра — только если Kp от 5 и человек не выключил тему «storm»."""
+    if not await prefs.topic_on(user_id, "storm"):
+        return ""
+    k = await envdata.kp(offset_s)
+    if not k:
+        return ""
+    names = ["сегодня", "завтра"]
+    parts = [f"{names[i]} до Kp {d['max']:g} ({d['label']}, пик около {d['peak']})"
+             for i, d in enumerate(k["days"][:2]) if d["storm"]]
+    return ("🧲 Магнитная буря: " + "; ".join(parts)) if parts else ""
+
+
+def _offset(loc: dict) -> int:
+    """Смещение местного времени города от UTC, секунды (для выбранного города — из кэша прогноза)."""
+    k = (round(loc["lat"], 2), round(loc["lon"], 2))
+    if k in _offsets:
+        return _offsets[k]
+    c = _cache.get(k)
+    if c:
+        return c[1].get("utc_offset") or 0
+    return int(now().utcoffset().total_seconds()) if not loc.get("custom") else 0
 
 
 def _t(v: int) -> str:
@@ -107,9 +145,17 @@ async def build(user: users.User) -> Reply:
 async def _build(user: users.User) -> Reply:
     d = today()
     text = f"☀️ <b>Доброе утро, {esc(user.name)}!</b>\n{WEEKDAYS[d.weekday()].capitalize()}, {d:%d.%m.%Y}\n"
-    w = await weather()
+    loc = await prefs.location(user.id)
+    w = await weather(loc)
     if w:
         text += f"\n{w}\n"
+        try:
+            st = await storm_line(user.id, _offset(loc))
+        except Exception:
+            log.exception("Строка о магнитной буре")
+            st = ""
+        if st:
+            text += f"{st}\n"
 
     z = get_settings().zone
     a = datetime.combine(d, time.min, tzinfo=z)

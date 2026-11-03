@@ -6,6 +6,7 @@
   3) о каждом входе бот пишет в Telegram. Выйти везде: /web off.
 Пароли нигде не хранятся, в базе лежат только хеши ссылок и сессий.
 """
+import asyncio
 import hashlib
 import re
 import secrets
@@ -16,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import analytics, budgets, db, finance, habits, morning, notify, nutrition, scope, shopping, tasks, ticktick, undo, users
+from . import analytics, budgets, db, envdata, finance, habits, market, morning, notify, nutrition, prefs, scope, shopping, tasks, ticktick, undo, users
 from .config import get_settings
 from .schemas import Button, Reply
 from .util import esc, today
@@ -476,10 +477,28 @@ async def ticktick_sync_now(user: users.User = Depends(current_user)):
 
 @router.get("/web/api/weather")
 async def weather(user: users.User = Depends(current_user)):
-    data = await morning.forecast()
+    """Погода по базовому городу человека + магнитные бури и пыльца (если есть данные для этого места)."""
+    loc = await prefs.location(user.id)
+    data = await morning.forecast(loc)
     if not data:
         raise HTTPException(503, "Погода сейчас недоступна")
-    return data
+    off = data.get("utc_offset") or 0
+    storm, pollen = await asyncio.gather(envdata.kp(off), envdata.pollen(loc["lat"], loc["lon"], off))
+    return {**data, "custom": loc["custom"], "storm": storm, "pollen": pollen if pollen and pollen["covered"] else None}
+
+
+@router.get("/web/api/market")
+async def market_data(user: users.User = Depends(current_user)):
+    """Курсы, крипта, индексы, ключевая ставка и инфляция — справочно. Скрытые человеком позиции не отдаём."""
+    return await market.overview((await prefs.get(user.id)).get("market_hidden"))
+
+
+@router.get("/web/api/city/search")
+async def city_search(q: str = "", user: users.User = Depends(current_user)):
+    try:
+        return await envdata.search_city(q)
+    except Exception:
+        raise HTTPException(503, "Поиск города сейчас недоступен")
 
 
 @router.get("/web/api/home")
