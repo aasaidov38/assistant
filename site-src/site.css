@@ -52,6 +52,7 @@ code,.mono{font-family:var(--f-mono);font-size:.88em}
 .dd{position:relative}
 .dd>button::after{content:"";width:6px;height:6px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);opacity:.6}
 .menu{display:none;position:absolute;left:0;top:calc(100% + 6px);min-width:230px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px;z-index:30}
+.menu::before{content:"";position:absolute;left:-6px;right:-6px;top:-14px;height:14px}
 .dd.open .menu,.dd:hover .menu,.dd:focus-within .menu{display:block}
 .menu a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;color:var(--ink2);text-decoration:none;font-size:14.5px}
 .menu a:hover{background:var(--accent-soft);color:var(--ink)}
@@ -115,7 +116,7 @@ section.tight{padding-top:36px}
 .stage{position:relative;max-width:520px;justify-self:center;width:100%;padding-bottom:56px}
 .stage .ph{border-radius:26px}
 .stage .chat{position:absolute;left:-26px;right:34px;bottom:0;padding:12px;gap:6px}
-@media (max-width:640px){.stage .chat{left:0;right:12px}}
+@media (max-width:1000px){.stage{padding-bottom:0}.stage .chat{position:static;margin-top:12px}}
 
 /* чат */
 .chat{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;width:100%}

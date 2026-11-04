@@ -18,7 +18,7 @@ def check(cond, name, info=""):
 PAGES = ["index", "features", "money", "food", "tasks", "home", "channels", "examples", "screens",
          "how", "privacy", "changelog", "roadmap", "app", "faq"]
 
-check(release.VERSION == "1.10.4" and (REPO / "VERSION").read_text().strip() == "1.10.4", "версия 1.10.4 в VERSION и release.py")
+check(release.VERSION == "1.10.5" and (REPO / "VERSION").read_text().strip() == "1.10.5", "версия 1.10.5 в VERSION и release.py")
 check(bool(release.notes("1.10.4")), "в CHANGELOG есть раздел 1.10.4", release.notes("1.10.4"))
 check(".html" in site.TYPES, "сайт отдаёт файлы .html")
 

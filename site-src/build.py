@@ -11,7 +11,7 @@ import sys, shutil, pathlib, html
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = pathlib.Path(sys.argv[1]).resolve()
 REPO = '--repo' in sys.argv
-VERSION = '1.10.4'
+VERSION = '1.10.5'
 PANEL = 'https://assistant.saidov.ru/web/'
 
 # ---------- фотографии (файл, подпись для скринридера) ----------
