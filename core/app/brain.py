@@ -10,7 +10,7 @@ import base64
 import logging
 import re
 
-from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, finance, garage, habits, media, meds, meters, morning,
+from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, druginfo, finance, garage, habits, media, meds, meters, morning,
                notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, sizes, tasks, ticktick, trips, undo, users, web)
 from .config import get_settings
 from .prompts import PHOTO_PARSER, TEXT_PARSER
@@ -80,6 +80,7 @@ HELP = """🤖 <b>Личный ассистент</b>
 
 💊 <b>Лекарства</b>
 <code>витамин D по 1 таблетке в 9:00, в упаковке 60</code> · <code>принял витамин D</code> · /meds
+Инструкция к лекарству: <code>/drug нурофен</code>
 Дозы и схему пишите сами, как назначил врач: я только напоминаю и считаю остаток.
 
 🤝 <b>Долги</b>
@@ -219,6 +220,9 @@ async def handle_text(user: users.User, text: str, source: str, header: str = ""
         return await settings_reply(user)
     if cmd in ("/meds", "лекарства", "таблетки", "витамины"):
         return await meds.list_reply(user)
+    mm = re.match(r"^(?:/drug|/инструкция|инструкция(?:\s+(?:к|на|по))?)(?:\s+(.+))?$", cmd)
+    if mm:
+        return await druginfo.lookup(user, mm.group(1))
     if cmd.startswith("/digest"):
         return await digest.set_enabled(user, "off" not in cmd and "выкл" not in cmd)
     if cmd.startswith("/goal"):
@@ -394,6 +398,8 @@ async def _life_intent(user: users.User, intent: str, data: dict, text: str) -> 
         return await meds.add_stock(user, med.get("name"), med.get("amount"))
     if intent == "med_stop":
         return await meds.stop_by_name(user, med.get("name"))
+    if intent == "drug_info":
+        return await druginfo.lookup(user, med.get("name"))
     return None
 
 

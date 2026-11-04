@@ -6,12 +6,13 @@
 Напоминание приходит в назначенное время с кнопками «✅ Принял», «⏰ Через 30 мин», «⏭ Пропустить».
 Если не ответили — ещё одно через 45 минут. Когда упаковки осталось на low_days дней — предложит
 добавить в список покупок.
-Кнопки: x:i<intake_id>:take|snooze|skip|untake  ·  x:m<med_id>:shop|stop|stopok  ·  x:0:list
+Кнопки: x:i<intake_id>:take|snooze|skip|untake|info  ·  x:m<med_id>:shop|stop|stopok|info  ·  x:0:list
+«ℹ️ Инструкция» (1.10.6) показывает краткую справку по названию лекарства — см. druginfo.py.
 """
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from . import db, notify, scope, shopping
+from . import db, druginfo, notify, scope, shopping
 from .config import get_settings
 from .schemas import Button, Reply
 from .users import User
@@ -122,7 +123,8 @@ async def _intake_text(m: dict, due: datetime, repeat: bool = False) -> Reply:
 
 def _intake_buttons(iid: int) -> list[list[Button]]:
     return [[Button(text="✅ Принял", action=f"x:i{iid}:take")],
-            [Button(text="⏰ Через 30 мин", action=f"x:i{iid}:snooze"), Button(text="⏭ Пропустить", action=f"x:i{iid}:skip")]]
+            [Button(text="⏰ Через 30 мин", action=f"x:i{iid}:snooze"), Button(text="⏭ Пропустить", action=f"x:i{iid}:skip")],
+            [Button(text="ℹ️ Инструкция", action=f"x:i{iid}:info")]]
 
 
 async def send_due() -> None:
@@ -261,6 +263,7 @@ async def list_reply(user: User, head: str = "") -> Reply:
     if st:
         text += "\n\n<b>Сегодня</b>\n" + "\n".join(
             f"{icon[s['status']]} {s['time']} {esc(s['title'])}" + (f" ({esc(s['for_whom'])})" if s["for_whom"] else "") for s in st)
+    text += "\n\nℹ️ Краткая инструкция к лекарству: <code>/drug название</code>"
     buttons = [[Button(text=f"✅ {s['time']} {s['title'][:20]}", action=f"x:i{s['intake_id']}:take")]
                for s in st if s["status"] == "pending" and s["intake_id"]][:4]
     return Reply(text=text, buttons=buttons)
@@ -279,6 +282,10 @@ async def handle_action(user: User, parts: list[str]) -> Reply:
             return Reply(text="Напоминание устарело.")
         if op == "take":
             return await take(user, iid)
+        if op == "info":
+            r = await druginfo.lookup(user, own["title"])
+            r.new_message = True
+            return r
         if op == "snooze":
             await pool.execute("UPDATE med_intakes SET snooze_until=now() + interval '30 minutes' WHERE id=$1 AND status='pending'", iid)
             return Reply(text=f"⏰ Напомню про {esc(own['title'])} через 30 минут.")
@@ -297,6 +304,10 @@ async def handle_action(user: User, parts: list[str]) -> Reply:
         m = next((x for x in await meds(user.family_id, active_only=False) if x["id"] == mid), None)
         if not m:
             return Reply(text="Лекарство не найдено.")
+        if op == "info":
+            r = await druginfo.lookup(user, m["title"])
+            r.new_message = True
+            return r
         if op == "shop":
             r = await shopping.add(user, [{"title": m["title"], "dept": "аптека"}])
             r.new_message = True

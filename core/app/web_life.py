@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from . import alice, cards, push, release, ticktick
-from . import bank, bills, db, debts, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
+from . import bank, bills, db, debts, druginfo, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
 from .config import get_settings
 from .schemas import Reply
 from .util import today
@@ -421,6 +421,15 @@ async def meds_list(user_id: int | None = None, user: users.User = Depends(curre
 async def meds_add(body: MedIn, user: users.User = Depends(current_user)):
     owner = await _member(user, body.user_id, "meds")
     return reply_json(await meds.add(owner, body.model_dump()))
+
+
+@router.get("/web/api/drug")
+async def drug_info(name: str = "", user: users.User = Depends(current_user)):
+    """Краткая справка по лекарству (1.10.6): {ok, card:{name, active, about, how[], side[], restrict[], source}, note}."""
+    r = await druginfo.get_card(user, name)
+    if r["ok"]:
+        return {"ok": True, "card": r["card"], "cached": r["cached"], "note": druginfo.NOTE}
+    return {"ok": False, "reason": r["reason"], "message": plain(druginfo.FAIL_TEXT[r["reason"]])}
 
 
 @router.post("/web/api/meds/intakes/{iid}/{op}")

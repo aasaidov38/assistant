@@ -417,6 +417,9 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
   <div class="card" style="margin-bottom:12px"><h3>💊 Лекарства</h3>
     <div class="muted" style="font-size:13px">Дозы и схему пишите сами, как назначил врач. Ассистент только напоминает и считает остаток.</div>
     <ul class="list" id="medToday"></ul><div id="medList"></div>
+    <details class="add" id="drugBox"><summary>🔎 Инструкция к лекарству</summary>
+      <form id="drugForm" class="row" style="margin-top:8px"><input name="name" placeholder="Название: нурофен, витамин D…" required style="flex:1;min-width:180px"><button class="btn pri">Найти</button></form>
+      <div id="drugCard"></div></details>
     <details class="add"><summary>➕ Добавить лекарство</summary><form id="medForm" class="fgrid">
       <input name="title" placeholder="Название" required class="full">
       <input name="dose" placeholder="Доза: 1 таблетка, 5 мл">
@@ -940,13 +943,30 @@ async function loadMeds() {
     d.meds.map(m => `<tr><td><b>${esc(m.title)}</b>${m.dose ? '<div class="sub muted">' + esc(m.dose) + '</div>' : ''}${m.for_whom ? '<div class="sub muted">для: ' + esc(m.for_whom) + '</div>' : ''}</td>
       <td>${esc(m.schedule)}</td><td class="num">${m.stock == null ? '—' : (m.stock + ' ' + esc(m.unit)) + (m.days_of_stock != null ? '<div class="sub ' + (m.days_of_stock <= m.low_days ? 'inc' : 'muted') + '" style="' + (m.days_of_stock <= m.low_days ? 'color:var(--bad)' : '') + '">≈ ' + m.days_of_stock + ' дн.</div>' : '')}</td>
       <td class="num" style="min-width:90px">${m.adherence ? (p => `${p}%<div class="meter ${p >= 90 ? 'good' : p >= 70 ? 'warn' : 'bad'}"><i style="width:${p}%"></i></div>`)(Math.round(m.adherence.taken * 100 / m.adherence.total)) : '—'}</td>
-      <td><button class="btn sm" data-mstop="${m.id}" title="Закончить курс">⏹</button></td></tr>`).join('') + '</table>' : '';
+      <td><button class="btn sm" data-minfo="${esc(m.title)}" title="Краткая инструкция">ℹ️</button> <button class="btn sm" data-mstop="${m.id}" title="Закончить курс">⏹</button></td></tr>`).join('') + '</table>' : '';
   $$('[data-mt]').forEach(b => b.onclick = () => act(() => post(`meds/intakes/${b.dataset.mt}/take`), loadMeds));
   $$('[data-ms]').forEach(b => b.onclick = () => act(() => post(`meds/intakes/${b.dataset.ms}/skip`), loadMeds));
   $$('[data-mu]').forEach(b => b.onclick = () => act(() => post(`meds/intakes/${b.dataset.mu}/untake`), loadMeds));
   $$('[data-mnow]').forEach(b => b.onclick = () => act(() => post(`meds/${b.dataset.mnow}/take`), loadMeds));
+  $$('[data-minfo]').forEach(b => b.onclick = () => showDrugInfo(b.dataset.minfo));
   $$('[data-mstop]').forEach(b => b.onclick = () => confirm('Закончить курс? Напоминаний больше не будет.') && act(() => post(`meds/${b.dataset.mstop}/stop`), loadMeds));
 }
+// ---------- инструкция к лекарству (1.10.6) ----------
+const drugList = (title, items) => items && items.length ? `<h4 style="margin:12px 0 4px">${title}</h4><ul style="margin:0;padding-left:18px">${items.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>` : '';
+async function showDrugInfo(name) {
+  const box = $('#drugCard'); $('#drugBox').open = true; $('#drugForm').elements.name.value = name;
+  box.innerHTML = '<div class="empty">Ищу сведения…</div>';
+  try {
+    const r = await api('drug?name=' + encodeURIComponent(name));
+    if (!r.ok) { box.innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
+    const c = r.card;
+    box.innerHTML = `<div class="card" style="margin-top:10px"><h3>💊 ${esc(c.name)}</h3>${c.active ? `<div class="sub muted">действующее вещество: ${esc(c.active)}</div>` : ''}
+      ${c.about ? `<p>${esc(c.about)}</p>` : ''}${drugList('Как принимать', c.how)}${drugList('Возможные побочные эффекты', c.side)}${drugList('Ограничения и противопоказания', c.restrict)}
+      <div class="sub muted" style="margin-top:12px">${c.source === 'grls' ? 'Текст по официальной инструкции. ' : ''}${esc(r.note)}</div></div>`;
+  } catch (e) { box.innerHTML = `<div class="empty">⚠️ ${esc(errText(e).slice(0, 200))}</div>`; }
+}
+$('#drugForm').onsubmit = e => { e.preventDefault(); const n = e.target.elements.name.value.trim(); n && showDrugInfo(n); };
+
 onForm('#medForm', async d => { await post('meds', {...d, times: (d.times || '').split(/[,; ]+/).filter(Boolean), stock: d.stock ? +d.stock : null,
   per_intake: d.per_intake ? +d.per_intake : 1, user_id: +who('meds', '#hab')}); toast('💊 Добавлено в расписание'); loadMeds(); });
 

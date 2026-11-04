@@ -52,6 +52,9 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
 - "med_taken": принял лекарство («принял витамин D», «выпил таблетку от давления»).
 - "med_stock": купил упаковку лекарства («купил витамин D, 60 таблеток»).
 - "med_stop": закончить курс («витамин D больше не пью», «закончили сироп»).
+- "drug_info": спрашивают инструкцию, описание, правила приёма, побочные эффекты или противопоказания лекарства
+  («что за лекарство нурофен», «побочки у амоксициллина», «как принимать мезим», «можно ли аспирин при гастрите»).
+  Это НЕ med_add: расписание не создавай. В блок "med" положи только название препарата (name).
 - "debt": долг — дал или взял деньги в долг («дал Пете в долг 5000 до 15 ноября», «занял у Ивана 3000»,
   «Сергей должен мне 2000», «я должен маме 10000 до конца месяца»). direction: lent — дали мы, нам должны;
   borrowed — взяли мы, мы должны. Это НЕ трата и НЕ доход.
@@ -68,7 +71,7 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
 
 Формат:
 {{
-  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|trip|trip_items|debt|debt_repay|card_add|card_show|question",
+  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|drug_info|trip|trip_items|debt|debt_repay|card_add|card_show|question",
   "transactions": [
     {{"kind": "expense|income", "amount": 1450.0, "category": "точное название из списка",
       "merchant": "магазин или null", "note": "коротко или null", "date": "YYYY-MM-DD",
@@ -134,7 +137,7 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
 - Для задач без времени ставь только дату; remind_minutes_before = null, если напоминание не нужно.
 - assignee = null, если дело для самого пишущего («мне», «я», без имени).
 - «10 тысяч», «10к» = 10000.
-- Для med_taken, med_stock, med_stop заполняй блок "med".
+- Для med_taken, med_stock, med_stop, drug_info заполняй блок "med".
 - Дни недели в days: 0 = понедельник … 6 = воскресенье; null = каждый день."""
 
 PHOTO_PARSER = """Ты семейный ассистент. На фото кассовый чек, еда или продукты. Верни ОДИН JSON-объект без пояснений.
