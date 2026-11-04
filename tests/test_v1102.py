@@ -162,11 +162,16 @@ async def main():
     m = web.MANIFEST
     srcs = [i["src"] for i in m["icons"]]
     check(all(x.endswith("?v=2") for x in srcs) and len(srcs) == 3, "в манифесте новые адреса значков (с версией, чтобы обошёл кэш)", srcs)
-    from PIL import Image
+    import struct
+
+    def png(name):                      # размер и вид PNG из заголовка (без сторонних библиотек)
+        b = (ROOT / f"{name}.png").read_bytes()
+        assert b[:8] == b"\x89PNG\r\n\x1a\n", name
+        w, h = struct.unpack(">II", b[16:24])
+        return (w, h), b[25]            # b[25]: 2 — RGB, 6 — RGBA
     for name, size in (("icon-192", 192), ("icon-512", 512), ("icon-maskable-512", 512), ("apple-touch-icon", 180)):
-        im = Image.open(ROOT / f"{name}.png")
-        check(im.size == (size, size), f"{name}.png — {size}×{size}", im.size)
-    check(Image.open(ROOT / "icon-maskable-512.png").mode == "RGB", "значок под обрезку — без прозрачности")
+        check(png(name)[0] == (size, size), f"{name}.png — {size}×{size}", png(name))
+    check(png("icon-maskable-512")[1] == 2, "значок под обрезку — без прозрачности")
     check(web.STATIC.get("splash.jpg") == "image/jpeg" and (ROOT / "splash.jpg").stat().st_size < 150_000, "картинка заставки отдаётся и не тяжёлая")
     html = (ROOT / "index.html").read_text(encoding="utf-8")
     check('id="splash"' in html and "function hideSplash" in html and "hideSplash();\n})();" in html and "display-mode: standalone" in html,
