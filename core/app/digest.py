@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import date, timedelta
 
-from . import ai, budgets, db, finance, habits, notify, nutrition, scope, tasks, users
+from . import ai, budgets, db, dietitian, finance, habits, notify, nutrition, prefs, scope, tasks, users
 from .config import get_settings
 from .prompts import DIGEST_ADVICE
 from .schemas import Reply
@@ -136,6 +136,14 @@ async def send_due() -> None:
             await notify.send(user.id, await build(user), urgent=True)
         except Exception:
             log.exception("Не удалось отправить разбор пользователю %s", user.id)
+            continue
+        try:                                   # 1.10.6: режим диетолога — отдельное сообщение с разбором по тарелке
+            if (await prefs.get(user.id)).get("dietitian", True):
+                extra = await dietitian.week_reply(user, auto=True)
+                if extra:
+                    await notify.send(user.id, extra, urgent=False)
+        except Exception:
+            log.exception("Не удалось отправить разбор по тарелке пользователю %s", user.id)
 
 
 async def set_enabled(user: users.User, on: bool) -> Reply:

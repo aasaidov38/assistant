@@ -36,6 +36,7 @@ DEFAULTS = {"theme": "system", "animations": True, "hidden_tabs": [],
             "mirror": True,
             "city": None,            # 1.10: базовый город {name, label, lat, lon, tz}; пусто — общий из .env
             "market_hidden": [],     # 1.10: коды курсов, которые человек скрыл в карточке «Рынок»
+            "dietitian": True,       # 1.10.6: режим диетолога — разбор по тарелке Гарварда вместе с недельным разбором
             "balance_low": 300}      # 1.10.2: порог, ниже которого предупреждаем о балансе GPTunnel (₽)
 GOALS = {"kcal": ("🔥 Калории", "ккал"), "water": ("💧 Вода", "мл"), "steps": ("👟 Шаги", ""),
          "weight": ("⚖️ Целевой вес", "кг"), "sleep": ("😴 Сон", "ч")}
@@ -51,6 +52,7 @@ def _merge(raw: dict | None) -> dict:
     out["city"] = _city(out.get("city"))
     out["market_hidden"] = market.clean_hidden(out.get("market_hidden"))
     out["balance_low"] = _low(out.get("balance_low"))
+    out["dietitian"] = bool(out.get("dietitian", True))
     return out
 
 
@@ -171,6 +173,8 @@ async def update(user: users.User, patch: dict) -> dict:
         s["city"] = _city(p["city"])          # None или пустое значение — вернуться к общему городу
     if "balance_low" in p:
         s["balance_low"] = _low(p["balance_low"])
+    if "dietitian" in p:
+        s["dietitian"] = bool(p["dietitian"])
     if isinstance(p.get("market_hidden"), list):
         s["market_hidden"] = market.clean_hidden(p["market_hidden"])
     await pool.execute("UPDATE users SET settings=$2::jsonb WHERE id=$1", user.id, s)

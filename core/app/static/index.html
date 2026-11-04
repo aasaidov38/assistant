@@ -405,6 +405,9 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
 
 <section id="food">
   <div class="row"><select class="who"></select><select id="foodDays"><option value="14">14 дней</option><option value="30" selected>30 дней</option><option value="90">90 дней</option></select></div>
+  <div class="card" style="margin-bottom:12px"><h3>🥗 Диетолог: разбор недели по тарелке Гарварда</h3>
+    <div class="muted" style="font-size:13px">½ тарелки овощи и фрукты (картофель не считается), ¼ цельные злаки, ¼ полезный белок: рыба, птица, бобовые, орехи. Оценка идёт по названиям блюд, порции не взвешены. Вопросы про питание и КБЖУ задайте в строке внизу экрана.</div>
+    <button class="btn pri" id="dietBtn" style="margin-top:8px">Разобрать мою неделю</button><div id="dietWeek"></div></div>
   <div class="grid">
     <div class="card"><h3>Калории по дням</h3><div class="ch"><canvas id="cKcal"></canvas></div></div>
     <div class="card"><h3>Белки, жиры, углеводы (г)</h3><div class="ch"><canvas id="cBju"></canvas></div></div>
@@ -570,6 +573,9 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
       <h3 style="margin-top:14px">🌙 Тихие часы</h3>
       <div class="opt"><div class="grow">Не беспокоить<div class="sub">Напоминания придут после окончания. Лекарства и дела с точным временем — всегда.</div></div>
         <input type="time" id="sQFrom"> – <input type="time" id="sQTo"><label class="sw"><input type="checkbox" id="sQuiet"><span></span></label></div>
+      <h3 style="margin-top:14px">🥗 Питание</h3>
+      <div class="opt"><div class="grow">Режим диетолога<div class="sub">В день недельного разбора присылать ещё разбор питания по тарелке Гарварда</div></div>
+        <label class="sw"><input type="checkbox" id="sDiet"><span></span></label></div>
       <h3 style="margin-top:14px">💬 Связь</h3>
       <div class="opt"><div class="grow">Копии в Telegram<div class="sub">Дублировать в бот то, что сделано в панели и через Алису</div></div>
         <label class="sw"><input type="checkbox" id="sMirror"><span></span></label></div>
@@ -967,6 +973,30 @@ async function showDrugInfo(name) {
 }
 $('#drugForm').onsubmit = e => { e.preventDefault(); const n = e.target.elements.name.value.trim(); n && showDrugInfo(n); };
 
+// ---------- диетолог (1.10.6) ----------
+const DIET_ICO = {'в норме': '🟢', 'мало': '🟠', 'много': '🟠', 'нет данных': '⚪'};
+async function showDietWeek() {
+  const box = $('#dietWeek'), b = $('#dietBtn'); b.disabled = true;
+  box.innerHTML = '<div class="empty">Считаю и оцениваю…</div>';
+  try {
+    const r = await api('diet/week?user_id=' + who('nutrition', '#food')), s = r.stats || {};
+    let h = '';
+    if (s.days_logged && s.avg_kcal != null) {
+      const sh = s.macro_share_pct || {};
+      h += `<p style="margin:10px 0 0"><b>Записи: ${s.days_logged} из 7 дней.</b> В среднем ${s.avg_kcal} ккал (цель ${s.kcal_goal}) · Б ${s.avg_protein} · Ж ${s.avg_fat} · У ${s.avg_carbs} г`
+        + (sh.protein != null ? `<br><span class="muted">Доли калорий: белки ${sh.protein}% · жиры ${sh.fat}% · углеводы ${sh.carbs}%. Дней выше цели: ${s.days_over_goal}. Перекусы: ${s.snack_share_pct}% калорий.</span>` : '') + '</p>';
+    }
+    if (!r.ok) { box.innerHTML = h + `<div class="empty">${esc(r.message)}</div>`; return; }
+    const v = r.review;
+    h += '<h4 style="margin:12px 0 4px">Тарелка по схеме Гарварда</h4><ul style="margin:0;padding-left:18px;list-style:none">'
+      + v.plate.map(p => `<li>${DIET_ICO[p.status] || '⚪'} <b>${esc(p.part)}</b>: ${esc(p.status)}${p.comment ? '. ' + esc(p.comment) : ''}</li>`).join('') + '</ul>'
+      + drugList('Что получается', v.good) + drugList('Что улучшить', v.improve) + drugList('Шаги на неделю', v.steps)
+      + (v.note ? `<p>${esc(v.note)}</p>` : '') + `<div class="sub muted" style="margin-top:12px">${esc(r.note)}</div>`;
+    box.innerHTML = h;
+  } catch (e) { box.innerHTML = `<div class="empty">⚠️ ${esc(errText(e).slice(0, 200))}</div>`; }
+  finally { b.disabled = false; }
+}
+$('#dietBtn').onclick = showDietWeek;
 onForm('#medForm', async d => { await post('meds', {...d, times: (d.times || '').split(/[,; ]+/).filter(Boolean), stock: d.stock ? +d.stock : null,
   per_intake: d.per_intake ? +d.per_intake : 1, user_id: +who('meds', '#hab')}); toast('💊 Добавлено в расписание'); loadMeds(); });
 
@@ -1469,6 +1499,7 @@ async function loadSettings() {
   sw('#sQuiet', m.quiet.on); $('#sQFrom').value = m.quiet.from; $('#sQTo').value = m.quiet.to;
   $('#sQuiet').onchange = e => saveSet({quiet: {on: e.target.checked}}, e.target);
   ['#sQFrom', '#sQTo'].forEach(id => $(id).onchange = e => e.target.value && saveSet({quiet: {[id === '#sQFrom' ? 'from' : 'to']: e.target.value}}, e.target));
+  sw('#sDiet', m.dietitian); $('#sDiet').onchange = e => saveSet({dietitian: e.target.checked}, e.target);
   sw('#sMirror', m.mirror); $('#sMirror').onchange = e => saveSet({mirror: e.target.checked}, e.target);
   $('#sTopics').innerHTML = Object.entries(SET.topics).map(([k, t]) => `<div class="opt"><div class="grow">${esc(t)}</div>
     <label class="sw"><input type="checkbox" data-topic="${k}" ${m.notify[k] ? 'checked' : ''}><span></span></label></div>`).join('')

@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from . import alice, cards, push, release, ticktick
-from . import bank, bills, db, debts, druginfo, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
+from . import bank, bills, db, debts, dietitian, druginfo, finance, garage, habits, meds, meters, notes, nutrition, papers, prefs, savings, scope, trips, users
 from .config import get_settings
 from .schemas import Reply
 from .util import today
@@ -421,6 +421,16 @@ async def meds_list(user_id: int | None = None, user: users.User = Depends(curre
 async def meds_add(body: MedIn, user: users.User = Depends(current_user)):
     owner = await _member(user, body.user_id, "meds")
     return reply_json(await meds.add(owner, body.model_dump()))
+
+
+@router.get("/web/api/diet/week")
+async def diet_week(user_id: int | None = None, user: users.User = Depends(current_user)):
+    """Разбор питания за неделю по тарелке Гарварда (1.10.6): {ok, stats, review:{plate[], good[], improve[], steps[], note}, note}."""
+    m = await _member(user, user_id, "nutrition")
+    r = await dietitian.get_week(m)
+    if r["review"]:
+        return {"ok": True, "stats": r["stats"], "review": r["review"], "note": dietitian.NOTE}
+    return {"ok": False, "reason": r["reason"], "stats": r["stats"], "message": dietitian.REASONS[r["reason"]], "note": dietitian.NOTE}
 
 
 @router.get("/web/api/drug")

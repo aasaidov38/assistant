@@ -140,6 +140,7 @@ async def main():
         BotCommand(command="savings", description="Накопления"),
         BotCommand(command="meds", description="Лекарства на сегодня"),
         BotCommand(command="drug", description="Инструкция к лекарству: /drug название"),
+        BotCommand(command="diet", description="Диетолог: разбор недели и вопросы про питание"),
         BotCommand(command="trip", description="Поездка: бюджет, сборы, погода"),
         BotCommand(command="garage", description="Гараж: пробег, ТО, страховки"),
         BotCommand(command="docs", description="Документы и гарантии"),

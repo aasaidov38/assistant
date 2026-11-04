@@ -67,11 +67,16 @@ TEXT_PARSER = """Ты семейный ассистент. Разбери соо
 - "undo": отменить или удалить уже сделанную запись: трату, доход, чек, еду, показатель, дело или покупку
   («отмени последнюю трату», «удали кофе, я его не пил», «убери задачу позвонить в банк», «вес записал неправильно,
   удали», «отмени вчерашний обед»). Не путать с budget («убери лимит») и metric_goal («убери цель»).
+- "diet_q": вопрос про питание, КБЖУ продуктов, диеты, здоровое питание, диетологию, гарвардскую тарелку
+  («сколько белка в твороге?», «можно ли есть яйца каждый день?», «как набрать белок без мяса», «что такое гарвардская тарелка»,
+  «сколько калорий в авокадо»). Это НЕ meal (там человек сообщает, что съел) и НЕ data (там вопрос про его собственные записи:
+  «сколько я съел вчера»).
+- "diet_week": просьба разобрать питание за неделю, оценить рацион по тарелке, «как я питался на этой неделе», «разбор питания».
 - "question": прочий вопрос или просьба. Дай короткий полезный ответ в "answer".
 
 Формат:
 {{
-  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|drug_info|trip|trip_items|debt|debt_repay|card_add|card_show|question",
+  "intent": "finance|meal|task|shopping|budget|recipe|metric|metric_goal|data|undo|bill|bill_paid|savings_goal|savings_move|vehicle|odometer|service_done|service_rule|paper|meter_add|meter_reading|note_save|note_ask|med_add|med_taken|med_stock|med_stop|drug_info|diet_q|diet_week|trip|trip_items|debt|debt_repay|card_add|card_show|question",
   "transactions": [
     {{"kind": "expense|income", "amount": 1450.0, "category": "точное название из списка",
       "merchant": "магазин или null", "note": "коротко или null", "date": "YYYY-MM-DD",

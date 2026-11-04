@@ -10,7 +10,7 @@ import base64
 import logging
 import re
 
-from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, druginfo, finance, garage, habits, media, meds, meters, morning,
+from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, dietitian, druginfo, finance, garage, habits, media, meds, meters, morning,
                notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, sizes, tasks, ticktick, trips, undo, users, web)
 from .config import get_settings
 from .prompts import PHOTO_PARSER, TEXT_PARSER
@@ -33,7 +33,6 @@ HELP = """🤖 <b>Личный ассистент</b>
 <code>сколько потратили на продукты в сентябре?</code>
 <code>сравни траты с прошлым месяцем</code>
 <code>сколько белка я ел в среднем за неделю?</code>
-<code>сколько уходит на сладости по чекам?</code>
 
 🍽 <b>Питание и КБЖУ</b>
 <code>съел тарелку борща и два куска хлеба</code>
@@ -41,6 +40,7 @@ HELP = """🤖 <b>Личный ассистент</b>
 <code>что приготовить на ужин из курицы, чтобы уложиться в 600 ккал</code>
 📸 фото холодильника или продуктов: предложу рецепты
 /goal 1800: дневная цель по калориям
+🥗 /diet: разбор недели по тарелке Гарварда и вопросы диетологу
 
 🛒 <b>Покупки</b>
 <code>закончилось молоко</code> · <code>купить хлеб и яйца</code>
@@ -220,6 +220,11 @@ async def handle_text(user: users.User, text: str, source: str, header: str = ""
         return await settings_reply(user)
     if cmd in ("/meds", "лекарства", "таблетки", "витамины"):
         return await meds.list_reply(user)
+    md = re.match(r"^(?:/diet|/диета|диетолог|режим диетолога)(?:\s+(.+))?$", cmd)
+    if md:
+        return await dietitian.command(user, md.group(1))
+    if cmd in ("разбор питания", "разбор питания за неделю", "питание за неделю", "гарвардская тарелка"):
+        return await dietitian.week_reply(user)
     mm = re.match(r"^(?:/drug|/инструкция|инструкция(?:\s+(?:к|на|по))?)(?:\s+(.+))?$", cmd)
     if mm:
         return await druginfo.lookup(user, mm.group(1))
@@ -398,6 +403,10 @@ async def _life_intent(user: users.User, intent: str, data: dict, text: str) -> 
         return await meds.add_stock(user, med.get("name"), med.get("amount"))
     if intent == "med_stop":
         return await meds.stop_by_name(user, med.get("name"))
+    if intent == "diet_q":
+        return await dietitian.ask(user, text)
+    if intent == "diet_week":
+        return await dietitian.week_reply(user)
     if intent == "drug_info":
         return await druginfo.lookup(user, med.get("name"))
     return None
@@ -508,6 +517,7 @@ async def settings_reply(user: users.User) -> Reply:
     text = ("⚙️ <b>Настройки</b>\n\n"
             f"☀️ Утренняя сводка: {'в ' + s['morning']['time'] if s['morning']['on'] else 'выключена'}\n"
             f"🗓 Недельный разбор: {WEEKDAYS[s['digest']['day']] + ', ' + str(s['digest']['hour']) + ':00' if s['digest']['on'] else 'выключен'}\n"
+            f"🥗 Режим диетолога: {'включён (/diet off — выключить)' if s['dietitian'] else 'выключен (/diet on — включить)'}\n"
             f"🌙 Тихие часы: {q['from'] + '–' + q['to'] if q['on'] else 'выключены'}\n"
             + (f"🔕 Не присылать: {', '.join(off)}\n" if off else "🔔 Все напоминания включены\n")
             + "\n<b>Разделы</b>\n👤 Личные: " + ", ".join(scope.SECTIONS[k][0] for k, v in modes.items() if v == "personal")
