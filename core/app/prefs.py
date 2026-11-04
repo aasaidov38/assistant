@@ -24,6 +24,7 @@ TOPICS = {
     "budget": "🎯 Лимиты и траты других",
     "updates": "🆕 Новые версии и «что нового»",
     "storm":  "🧲 Магнитные бури в утренней сводке (когда Kp от 5)",
+    "balance": "💸 Мало денег на счёте GPTunnel (только владельцу)",
 }
 TABS = {"fin": "💰 Финансы", "food": "🍽 Питание", "hab": "📈 Привычки и лекарства", "tasks": "📝 Дела", "shop": "🛒 Покупки",
         "house": "🏠 Дом", "garage": "🏍 Гараж", "trips": "🧳 Поездки", "debts": "🤝 Долги", "cards": "💳 Карты", "hist": "🕘 История",
@@ -33,7 +34,8 @@ DEFAULTS = {"theme": "system", "animations": True, "hidden_tabs": [],
             "quiet": {"on": False, "from": "22:00", "to": "08:00"},
             "mirror": True,
             "city": None,            # 1.10: базовый город {name, label, lat, lon, tz}; пусто — общий из .env
-            "market_hidden": []}     # 1.10: коды курсов, которые человек скрыл в карточке «Рынок»
+            "market_hidden": [],     # 1.10: коды курсов, которые человек скрыл в карточке «Рынок»
+            "balance_low": 300}      # 1.10.2: порог, ниже которого предупреждаем о балансе GPTunnel (₽)
 GOALS = {"kcal": ("🔥 Калории", "ккал"), "water": ("💧 Вода", "мл"), "steps": ("👟 Шаги", ""),
          "weight": ("⚖️ Целевой вес", "кг"), "sleep": ("😴 Сон", "ч")}
 _TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
@@ -47,7 +49,17 @@ def _merge(raw: dict | None) -> dict:
     out["hidden_tabs"] = [t for t in out.get("hidden_tabs") or [] if t in TABS]
     out["city"] = _city(out.get("city"))
     out["market_hidden"] = market.clean_hidden(out.get("market_hidden"))
+    out["balance_low"] = _low(out.get("balance_low"))
     return out
+
+
+def _low(v) -> int:
+    """Порог баланса в рублях: целое от 0 до 1 000 000, иначе 300."""
+    try:
+        n = int(float(v))
+    except (TypeError, ValueError):
+        return DEFAULTS["balance_low"]
+    return n if 0 <= n <= 1_000_000 else DEFAULTS["balance_low"]
 
 
 def _city(c) -> dict | None:
@@ -156,6 +168,8 @@ async def update(user: users.User, patch: dict) -> dict:
         s["mirror"] = bool(p["mirror"])
     if "city" in p:
         s["city"] = _city(p["city"])          # None или пустое значение — вернуться к общему городу
+    if "balance_low" in p:
+        s["balance_low"] = _low(p["balance_low"])
     if isinstance(p.get("market_hidden"), list):
         s["market_hidden"] = market.clean_hidden(p["market_hidden"])
     await pool.execute("UPDATE users SET settings=$2::jsonb WHERE id=$1", user.id, s)

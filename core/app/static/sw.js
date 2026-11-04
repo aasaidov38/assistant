@@ -17,7 +17,7 @@ self.addEventListener('push', e => {
   let m = {};
   try { m = e.data ? e.data.json() : {}; } catch (_) { m = {title: 'Ассистент', body: e.data ? e.data.text() : ''}; }
   e.waitUntil(self.registration.showNotification(m.title || 'Ассистент', {
-    body: m.body || '', icon: '/web/static/icon-192.png', badge: '/web/static/icon-192.png',
+    body: m.body || '', icon: '/web/static/icon-192.png?v=2', badge: '/web/static/icon-192.png?v=2',
     data: {url: m.url || '/web/chat'}, tag: m.tag || undefined, lang: 'ru'}));
 });
 

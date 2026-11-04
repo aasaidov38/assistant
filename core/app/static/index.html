@@ -7,8 +7,8 @@
 <title>Семейный ассистент</title>
 <link rel="manifest" href="/web/manifest.webmanifest">
 <meta name="theme-color" content="#3b82f6">
-<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png">
-<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png?v=2">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ассистент">
 <script>/* тема и анимации из настроек — до отрисовки, чтобы не мигало */
@@ -231,6 +231,15 @@ canvas{max-width:100%}.ch{position:relative;height:260px}.ch.sm{height:170px}
 .toast button{background:none;border:1px solid currentColor;color:inherit;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit;white-space:nowrap}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* 1.10.2: заставка при запуске установленного приложения (ярлык на рабочем столе) */
+#splash{position:fixed;inset:0;z-index:9999;display:none;color:#fff;background:#1f3358 url(/web/static/splash.jpg) 50% 28%/cover no-repeat;transition:opacity .45s var(--ease)}
+#splash.on{display:block}#splash.out{opacity:0;pointer-events:none}
+#splash::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,23,42,0) 40%,rgba(15,23,42,.82) 100%)}
+#splash .t{position:absolute;left:0;right:0;bottom:max(11vh,44px);z-index:1;text-align:center;padding:0 24px;text-shadow:0 2px 14px rgba(0,0,0,.45)}
+#splash h2{margin:0;font-size:28px;font-weight:700;letter-spacing:.2px}#splash p{margin:6px 0 0;font-size:15px;opacity:.85}
+#splash i{display:inline-block;width:7px;height:7px;margin:14px 4px 0;border-radius:50%;background:#fff;opacity:.35;animation:spl 1.1s infinite}
+#splash i:nth-of-type(2){animation-delay:.18s}#splash i:nth-of-type(3){animation-delay:.36s}
+@keyframes spl{0%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
 .noanim *,.noanim *::before,.noanim *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 
 /* ---------- 1.7: переключатели, сегменты, долги, настройки ---------- */
@@ -305,6 +314,12 @@ a.btn{text-decoration:none;display:inline-block}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><div class="t"><h2>Семейный ассистент</h2><p>Всё под рукой</p><i></i><i></i><i></i></div></div>
+<script>/* заставка — только в установленном приложении, один раз за запуск */
+function hideSplash() { const s = document.getElementById('splash'); if (!s) return;
+  setTimeout(() => { s.classList.add('out'); setTimeout(() => s.remove(), 600); }, Math.max(0, 1100 - (Date.now() - (window.__splash || 0)))); }
+try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standalone) && !sessionStorage.getItem('splash')) {
+  sessionStorage.setItem('splash', '1'); document.getElementById('splash').classList.add('on'); window.__splash = Date.now(); setTimeout(hideSplash, 6000); } } catch (e) {}</script>
 <header>
   <div class="top"><h1>🏠 Семейный <b>ассистент</b></h1><nav class="groups" id="groupsTop" aria-label="Разделы"></nav><span id="me" class="muted"></span></div>
   <nav id="tabs" aria-label="Подразделы">
@@ -338,6 +353,7 @@ a.btn{text-decoration:none;display:inline-block}
       <button class="btn sm" style="margin-top:8px" onclick="document.querySelector('#tabs [data-t=tasks]').click()">Все дела →</button></div>
     <div class="card"><h3>📊 Сегодня</h3><div id="homeToday"></div></div>
     <div class="card" id="homeMarket"><h3>📈 Рынок</h3><div class="skel" style="height:120px"></div></div>
+    <div class="card" id="homeBalance" style="display:none"></div>
   </div>
   <div class="card" style="margin-top:12px"><h3>🌤 Прогноз</h3>
     <div class="hours" id="wxHours"></div><div class="days" id="wxDays"></div></div>
@@ -567,6 +583,10 @@ a.btn{text-decoration:none;display:inline-block}
       <div class="tabsel" id="sMarket"></div>
       <div class="muted" style="font-size:12.5px;margin-top:8px">Индексы, ключевая ставка и инфляция показываются всегда. Цифры справочные, это не рекомендация.</div></div>
   </div>
+  <div class="card" id="sBalCard" style="margin-top:14px;display:none"><h3>💸 Баланс GPTunnel <span class="saved" data-saved>✓ Сохранено</span></h3>
+    <div class="opt"><div class="grow">Предупредить, когда останется меньше<div class="sub">Сообщение придёт в Telegram, повтор раз в сутки. Отдельно — когда деньги закончатся.</div></div>
+      <span class="hrow" style="gap:6px"><input type="number" id="sBalLow" min="0" max="1000000" step="50" style="width:96px"> ₽</span></div>
+    <div class="muted" style="font-size:12.5px;margin-top:8px">Показывается только владельцу. Баланс берётся из кабинета gptunnel.ru тем же ключом, что и модели; обновляется раз в час.</div></div>
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
     <div class="grid g2" style="gap:0 24px" id="sSections"></div></div>
@@ -1179,7 +1199,7 @@ async function loadDash() {
 }
 async function loadHome() {
   loadDash().catch(e => console.warn(e));
-  loadMarket();
+  loadMarket(); loadBalance();
   const [h, w] = await Promise.all([api('home'), api('weather').catch(() => null)]);
   if (w) {
     const n = w.now, ic = (n.text || '🌡').split(' ')[0];
@@ -1444,7 +1464,7 @@ async function loadSettings() {
           g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); flash(g); applyModes(); }
         catch (e) { toast('⚠️ ' + errText(e).slice(0, 200)); } }; }); });
   if (SET.system) renderSys(SET.system);
-  renderCity(); renderMarketSet();
+  renderCity(); renderMarketSet(); renderBalSet();
   loadInt();
 }
 // ---------- интеграции (1.8) ----------
@@ -1625,6 +1645,34 @@ function renderMarketSet() {
   $$('#sMarket input').forEach(i => i.onchange = async () => { await saveSet({market_hidden: $$('#sMarket input').filter(x => !x.checked).map(x => x.value)}, i.closest('.card')); MKT = null; });
 }
 
+// ---------- баланс GPTunnel (1.10.2) ----------
+let BAL = null;
+async function loadBalance() {
+  const box = $('#homeBalance');
+  try { BAL = await api('balance'); } catch (e) { box.style.display = 'none'; return; }
+  paintBalance(box, BAL);
+}
+function paintBalance(box, B) {
+  if (!B || !B.enabled) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  if (B.empty) { box.innerHTML = '<h3>💸 Баланс GPTunnel</h3><div class="empty">Пока не удалось получить остаток</div>'; return; }
+  const st = B.level === 'zero' ? pill('деньги закончились', 'red') : B.level === 'low' ? pill('мало', 'yel') : '';
+  const hm = B.at ? new Date(B.at * 1000).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}) : '';
+  box.innerHTML = `<h3>💸 Баланс GPTunnel ${st}</h3>
+    <div style="font-size:30px;font-weight:700;margin:2px 0 4px;${B.level !== 'ok' ? 'color:' + css('--bad') : ''}">${numF(B.balance, 2)} ₽</div>
+    <div class="muted" style="font-size:13.5px">${B.days_left != null ? `хватит примерно на ${pl(B.days_left, 'день', 'дня', 'дней')} · расход ≈ ${numF(B.rate_per_day, 0)} ₽ в день`
+      : B.rate_per_day == null ? 'расход посчитаю, когда накопится история за сутки' : ''}</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">${B.stale ? '⚠️ Не обновлялся давно · ' : ''}обновлено в ${hm}${B.credit ? ' · кредитный лимит ' + numF(B.credit, 0) + ' ₽' : ''}</div>`;
+}
+async function renderBalSet() {
+  let B; try { B = await api('balance'); } catch (e) { return; }
+  $('#sBalCard').style.display = B && B.enabled ? '' : 'none';
+  if (!B || !B.enabled) return;
+  $('#sBalLow').value = SET.me.balance_low ?? B.low;
+  $('#sBalLow').onchange = async e => { const v = Math.max(0, Math.min(1000000, Math.round(+e.target.value || 0)));
+    e.target.value = v; await saveSet({balance_low: v}, e.target.closest('.card')); };
+}
+
 // ---------- старт ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js', {scope: '/web/'}).catch(() => {});
 (async () => {
@@ -1639,6 +1687,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js',
   t = hashTab(location.hash) || t;
   const tb = document.querySelector(`#tabs [data-t="${t}"]`);
   (tb && !tb.hidden ? tb : document.querySelector('#tabs button')).click();
+  hideSplash();
 })();
 // адреса вида /web/#cards, #card-3, #set, #import-5 (ссылки из бота и уведомлений)
 function hashTab(h) {

@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import analytics, budgets, db, envdata, finance, habits, market, morning, notify, nutrition, prefs, scope, shopping, tasks, ticktick, undo, users
+from . import analytics, balance, budgets, db, envdata, finance, habits, market, morning, notify, nutrition, prefs, scope, shopping, tasks, ticktick, undo, users
 from .config import get_settings
 from .schemas import Button, Reply
 from .util import esc, today
@@ -163,7 +163,8 @@ async def current_user(request: Request) -> users.User:
 # Файлы панели, которые лежат рядом (без внешних сайтов): Chart.js 4.4.1 (MIT), генератор QR Kazuhiko Arase (MIT),
 # иконки приложения. Только этот список — никаких произвольных путей.
 STATIC = {"chart.umd.js": "text/javascript", "qrcode.js": "text/javascript", "icon-192.png": "image/png",
-          "icon-512.png": "image/png", "icon-maskable-512.png": "image/png", "apple-touch-icon.png": "image/png"}
+          "icon-512.png": "image/png", "icon-maskable-512.png": "image/png", "apple-touch-icon.png": "image/png",
+          "splash.jpg": "image/jpeg"}
 
 
 @router.get("/web/static/{name}")
@@ -177,12 +178,12 @@ MANIFEST = {
     "name": "Семейный ассистент", "short_name": "Ассистент", "lang": "ru", "dir": "ltr",
     "description": "Траты, питание, дела, покупки и напоминания семьи",
     "id": "/web/", "start_url": "/web/", "scope": "/web/", "display": "standalone",
-    "background_color": "#f3f4f8", "theme_color": "#3b82f6",
-    "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
-              {"src": "/web/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
-              {"src": "/web/static/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
-    "shortcuts": [{"name": "Чат", "url": "/web/chat", "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192"}]},
-                  {"name": "Карты лояльности", "url": "/web/#cards", "icons": [{"src": "/web/static/icon-192.png", "sizes": "192x192"}]}],
+    "background_color": "#1f3358", "theme_color": "#3b82f6",
+    "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192", "type": "image/png"},
+              {"src": "/web/static/icon-512.png?v=2", "sizes": "512x512", "type": "image/png"},
+              {"src": "/web/static/icon-maskable-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
+    "shortcuts": [{"name": "Чат", "url": "/web/chat", "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192"}]},
+                  {"name": "Карты лояльности", "url": "/web/#cards", "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192"}]}],
 }
 
 
@@ -491,6 +492,15 @@ async def weather(user: users.User = Depends(current_user)):
 async def market_data(user: users.User = Depends(current_user)):
     """Курсы, крипта, индексы, ключевая ставка и инфляция — справочно. Скрытые человеком позиции не отдаём."""
     return await market.overview((await prefs.get(user.id)).get("market_hidden"))
+
+
+@router.get("/web/api/balance")
+async def balance_data(user: users.User = Depends(current_user)):
+    """Баланс GPTunnel — только владельцу и только если ИИ подключён через GPTunnel."""
+    from . import release
+    if not balance.enabled() or not await release.is_owner(user):
+        return {"enabled": False}
+    return await balance.overview((await prefs.get(user.id)).get("balance_low", balance.DEFAULT_LOW))
 
 
 @router.get("/web/api/city/search")

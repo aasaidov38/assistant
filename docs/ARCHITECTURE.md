@@ -199,3 +199,9 @@ POST /v1/inbound
 - Базовый город: `prefs.city` у каждого человека, `prefs.location(user_id)` → место или общий из `.env`; `morning.forecast(loc)` кэширует по месту, для своего города запрашивает часовой пояс `auto` и берёт часы по местному времени.
 - Новых таблиц и миграций нет.
 
+## Версия 1.10.2: баланс GPTunnel, значок и заставка
+
+- `balance.py` — запрос `GET {origin}/v1/balance` (только при `LLM_PROVIDER=openai` и хосте gptunnel.ru, ключ — `LLM_API_KEY`), история остатка и средний расход за 7 дней (пополнения не считаются), прогноз дней, уведомления владельцу (`release._owner()`); состояние в `app_state`: `balance:gptunnel` {at, tried, data, history}, `balance:alert` {id владельца: {level, at}}. TTL 1 час, повтор после сбоя 10 минут, напоминание о нехватке раз в 24 часа.
+- `prefs`: `balance_low` (рублей, по умолчанию 300), тема уведомлений `balance`. `GET /web/api/balance` — только владельцу.
+- Панель: карточка `#homeBalance`, карточка настроек `#sBalCard`, заставка `#splash` (только `display-mode: standalone`, `hideSplash()` после старта). Значки в `static/`, адреса с `?v=2` из-за недельного кэша.
+- Новых таблиц и миграций нет.
