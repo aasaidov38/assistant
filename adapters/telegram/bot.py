@@ -146,6 +146,7 @@ async def main():
         BotCommand(command="notes", description="Заметки"),
         BotCommand(command="debts", description="Долги: кто кому должен"),
         BotCommand(command="cards", description="Карты лояльности: штрихкод на кассе"),
+        BotCommand(command="app", description="Установить ассистента как приложение"),
         BotCommand(command="version", description="Версия, обновления, резервные копии"),
         BotCommand(command="settings", description="Настройки и разделы"),
         BotCommand(command="history", description="Последние записи: отменить или вернуть"),

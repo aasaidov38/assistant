@@ -10,8 +10,8 @@ import base64
 import logging
 import re
 
-from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, finance, garage, habits, meds, meters, morning,
-               notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, tasks, ticktick, trips, undo, users, web)
+from . import (ai, alice, analytics, bank, bills, budgets, cards, debts, digest, finance, garage, habits, media, meds, meters, morning,
+               notes, nutrition, papers, prefs, recipes, release, savings, scope, shopping, sizes, tasks, ticktick, trips, undo, users, web)
 from .config import get_settings
 from .prompts import PHOTO_PARSER, TEXT_PARSER
 from .schemas import Action, Button, Inbound, Reply
@@ -89,6 +89,8 @@ HELP = """🤖 <b>Личный ассистент</b>
 <code>карта Пятёрочки 2775 0123 4567 5</code> · фото карты · <code>покажи карту Ленты</code> · /cards
 
 🏷 /version: версия, обновления и резервные копии
+📲 /app: поставить ассистента на телефон как приложение
+🗄 /size: сколько места занимают база и копии · /shrink: сжать старые фото (владелец)
 ⚙️ /settings: тема, вкладки, уведомления, тихие часы, личные и общие разделы (в веб-панели)
 🌐 /web: вход в веб-панель с графиками (ссылка от бота)
 🎙 /alice: привязать Яндекс Алису
@@ -205,6 +207,12 @@ async def handle_text(user: users.User, text: str, source: str, header: str = ""
         return await debts.list_reply(user)
     if cmd in ("/cards", "карты", "скидочные карты", "карты лояльности"):
         return await cards.list_reply(user)
+    if cmd in ("/app", "приложение", "установить приложение", "/install"):
+        return await web.install_reply(user)
+    if cmd in ("/size", "/place", "место", "размер базы"):
+        return await sizes_reply(user)
+    if cmd in ("/shrink", "сжать фото"):
+        return await shrink_reply(user)
     if cmd in ("/version", "версия", "/update", "обновление"):
         return await release.version_reply(user)
     if cmd in ("/settings", "настройки"):
@@ -389,9 +397,34 @@ async def _life_intent(user: users.User, intent: str, data: dict, text: str) -> 
     return None
 
 
+# ---------- Место и сжатие фото (1.10.3) ----------
+
+async def sizes_reply(user: users.User) -> Reply:
+    if not await release.is_owner(user):
+        return Reply(text="Размеры базы и копий показываю только владельцу.")
+    return Reply(text=sizes.report_text(await sizes.measure()))
+
+
+async def shrink_reply(user: users.User) -> Reply:
+    if not await release.is_owner(user):
+        return Reply(text="Сжимать старые фото может только владелец.")
+    r = await media.shrink_old()
+    if not r["checked"]:
+        return Reply(text="🗜 Крупных фото для сжатия нет.")
+    return Reply(text=f"🗜 Проверено фото: {r['checked']}, сжато: {r['shrunk']}, освобождено ≈ "
+                      f"{r['saved_bytes'] / 1048576:.1f} МБ. Место в файле базы вернётся после очистки PostgreSQL (автоматически, "
+                      "в течение суток).")
+
+
 # ---------- Фото ----------
 
 async def handle_photo(user: users.User, b64: str, mime: str, caption: str) -> Reply:
+    raw = base64.b64decode(b64)
+    if media.too_big(raw):
+        return Reply(text=f"Файл больше {media.MAX_BYTES // 1048576} МБ — слишком большой. Пришлите фото поменьше.")
+    small, mime = media.compress(raw, mime)       # 1.10.3: меньше места и токенов
+    if small is not raw:
+        raw, b64 = small, base64.b64encode(small).decode()
     n = now()
     system = PHOTO_PARSER.format(
         now=n.strftime("%Y-%m-%d %H:%M"), tz=get_settings().tz, currency=get_settings().currency,
@@ -414,11 +447,11 @@ async def handle_photo(user: users.User, b64: str, mime: str, caption: str) -> R
                                      products=[str(p) for p in data.get("products") or []][:30],
                                      header="📸 Продукты на фото")
     if kind in ("warranty", "document"):
-        att = await papers.save_attachment(user.family_id, base64.b64decode(b64), mime)
+        att = await papers.save_attachment(user.family_id, raw, mime)
         doc = {**data, "kind": "warranty" if kind == "warranty" else (data.get("kind") or "document")}
         return await papers.save(user, doc, attachment_id=att)
     if kind == "meter":
-        att = await papers.save_attachment(user.family_id, base64.b64decode(b64), mime)
+        att = await papers.save_attachment(user.family_id, raw, mime)
         return await meters.reading(user, [{"meter": caption or None, "kind": data.get("kind"), "value": data.get("value")}],
                                     attachment_id=att)
     if kind == "card":

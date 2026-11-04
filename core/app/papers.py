@@ -6,7 +6,7 @@
 """
 from datetime import date
 
-from . import db, notify, scope
+from . import db, media, notify, scope
 from .config import get_settings
 from .schemas import Button, Reply
 from .users import User
@@ -17,6 +17,7 @@ THRESHOLDS = {"document": [90, 30, 7], "policy": [30, 7, 1], "warranty": [30, 7]
 
 
 async def save_attachment(family_id: int, data: bytes, mime: str) -> int:
+    data, mime = media.compress(data, mime)      # 1.10.3: фото хранится сжатым
     return await db.get_pool().fetchval("INSERT INTO attachments (family_id, mime, data) VALUES ($1,$2,$3) RETURNING id",
                                          family_id, mime, data)
 

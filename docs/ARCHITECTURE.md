@@ -205,3 +205,12 @@ POST /v1/inbound
 - `prefs`: `balance_low` (рублей, по умолчанию 300), тема уведомлений `balance`. `GET /web/api/balance` — только владельцу.
 - Панель: карточка `#homeBalance`, карточка настроек `#sBalCard`, заставка `#splash` (только `display-mode: standalone`, `hideSplash()` после старта). Значки в `static/`, адреса с `?v=2` из-за недельного кэша.
 - Новых таблиц и миграций нет.
+
+## Версия 1.10.3: размеры, сжатие фото, установка приложения
+
+- `media.py` — `compress()` (Pillow: 1600 px, JPEG 80, без Pillow возвращает исходник), `too_big()` (15 МБ), `shrink_old()`; вызывается из `papers.save_attachment` и `brain.handle_photo`.
+- `sizes.py` — `measure()` (pg_database_size, объём attachments, `offsite.size_mb` из `state/host.json`), `level()` 70/90%, `check_alerts()` (владельцу, тема `sizes`, `app_state` `sizes:alert`), `check_due()` раз в час в `jobs.loop`.
+- `scripts/host-agent.sh` раз в час считает `restic stats --mode raw-data` → `state/.cloud-size.json` → `host.json.offsite.size_mb`.
+- `web.py`: `install_reply` (`/app`), `GET /web/api/sizes`, `POST /web/api/sizes/shrink` (владелец); манифест без кэша, значки `?v=3`.
+- Панель: блок `#homeInstall` (`paintInstall`, `installCase`), карточка `#sSizeCard` (`renderSizeSet`). Новых таблиц и миграций нет.
+

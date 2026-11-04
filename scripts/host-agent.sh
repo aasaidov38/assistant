@@ -25,6 +25,24 @@ now=$(date +%s)
 current=$(cat VERSION 2>/dev/null || echo 0)
 
 # ---------- 1. Состояние сервера ----------
+# Размер облачных копий (restic в Яндексе) считаем раз в час — команда небыстрая. Ключи берутся из /root/offsite/lib.sh,
+# в вывод они не попадают: сохраняется только число. Версия 1.10.3.
+CS="$ST/.cloud-size.json"; CT="$ST/.cloud-size.try"
+if [ -f /root/offsite/lib.sh ] && [ $((now - $(stat -c %Y "$CT" 2>/dev/null || echo 0))) -ge 3600 ]; then
+  touch "$CT"
+  timeout 120 bash -c '. /root/offsite/lib.sh >/dev/null 2>&1; restic stats --mode raw-data --json 2>/dev/null' \
+    | python3 -c "
+import json, sys, datetime as dt
+for line in reversed(sys.stdin.read().splitlines()):
+    if line.startswith('{'):
+        try:
+            n = json.loads(line)['total_size']
+        except Exception:
+            break
+        json.dump({'size_mb': round(n / 1048576, 1), 'at': dt.datetime.now(dt.timezone.utc).isoformat()}, open('$CS', 'w'))
+        break
+" 2>/dev/null || true
+fi
 python3 - "$ST" "$current" <<'PY'
 import glob, json, os, re, shutil, sys, datetime as dt
 st, current = sys.argv[1], sys.argv[2]
@@ -49,6 +67,11 @@ if os.path.exists(log):
                 err = m.group(1)
     loc = lambda s: dt.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").astimezone().isoformat() if s else None
     out["offsite"] = {"ok_at": loc(ok), "error_at": loc(err)}
+    try:
+        cs = json.load(open(os.path.join(st, ".cloud-size.json")))
+        out["offsite"]["size_mb"], out["offsite"]["size_at"] = cs["size_mb"], cs["at"]
+    except (OSError, ValueError, KeyError):
+        pass
 du = shutil.disk_usage("/")
 out["disk"] = {"free_gb": round(du.free / 1073741824, 1), "used_pct": round(du.used * 100 / du.total)}
 tmp = os.path.join(st, "host.json.tmp")

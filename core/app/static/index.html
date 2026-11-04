@@ -7,8 +7,8 @@
 <title>Семейный ассистент</title>
 <link rel="manifest" href="/web/manifest.webmanifest">
 <meta name="theme-color" content="#3b82f6">
-<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png?v=2">
-<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="/web/static/icon-192.png?v=3">
+<link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png?v=3">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ассистент">
 <script>/* тема и анимации из настроек — до отрисовки, чтобы не мигало */
@@ -333,6 +333,7 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
 </header>
 <main>
 <section id="home" class="on">
+  <div class="card" id="homeInstall" style="display:none;margin-bottom:14px"></div>
   <div class="kpis k4" id="homeKpi">
     <div class="card kpi hero"><div class="l">Расходы за месяц</div><div class="v" id="hkSpend"><span class="skel" style="display:block;width:60%;height:30px"></span></div>
       <div class="d" id="hkSpendD"></div><div class="spark"><canvas id="spSpend"></canvas></div></div>
@@ -587,6 +588,10 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
     <div class="opt"><div class="grow">Предупредить, когда останется меньше<div class="sub">Сообщение придёт в Telegram, повтор раз в сутки. Отдельно — когда деньги закончатся.</div></div>
       <span class="hrow" style="gap:6px"><input type="number" id="sBalLow" min="0" max="1000000" step="50" style="width:96px"> ₽</span></div>
     <div class="muted" style="font-size:12.5px;margin-top:8px">Показывается только владельцу. Баланс берётся из кабинета gptunnel.ru тем же ключом, что и модели; обновляется раз в час.</div></div>
+  <div class="card" id="sSizeCard" style="margin-top:14px;display:none"><h3>🗄 Место: база и копии</h3>
+    <div id="sSizeBody"><div class="skel" style="height:90px"></div></div>
+    <div style="margin-top:10px"><button class="btn sm" id="sShrink">🗜 Сжать старые фото</button> <span class="muted" id="sShrinkRes" style="font-size:13px"></span></div>
+    <div class="muted" style="font-size:12.5px;margin-top:8px">Показывается только владельцу. Предупреждения в Telegram приходят при 70% и 90% (тема «Заполняются база или копии»). Новые фото сжимаются при загрузке сами.</div></div>
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
     <div class="grid g2" style="gap:0 24px" id="sSections"></div></div>
@@ -1199,7 +1204,7 @@ async function loadDash() {
 }
 async function loadHome() {
   loadDash().catch(e => console.warn(e));
-  loadMarket(); loadBalance();
+  loadMarket(); loadBalance(); paintInstall();
   const [h, w] = await Promise.all([api('home'), api('weather').catch(() => null)]);
   if (w) {
     const n = w.now, ic = (n.text || '🌡').split(' ')[0];
@@ -1464,12 +1469,13 @@ async function loadSettings() {
           g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); flash(g); applyModes(); }
         catch (e) { toast('⚠️ ' + errText(e).slice(0, 200)); } }; }); });
   if (SET.system) renderSys(SET.system);
-  renderCity(); renderMarketSet(); renderBalSet();
+  renderCity(); renderMarketSet(); renderBalSet(); renderSizeSet();
   loadInt();
 }
 // ---------- интеграции (1.8) ----------
 let INSTALL = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL = e; if ($('#sInt').innerHTML) loadInt(); });
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL = e; if ($('#sInt').innerHTML) loadInt(); paintInstall(); });
+window.addEventListener('appinstalled', () => { INSTALL = null; paintInstall(); });
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent), STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const u8 = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); const b = atob(s + '='.repeat((4 - s.length % 4) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); };
 async function pushSub() {
@@ -1671,6 +1677,57 @@ async function renderBalSet() {
   $('#sBalLow').value = SET.me.balance_low ?? B.low;
   $('#sBalLow').onchange = async e => { const v = Math.max(0, Math.min(1000000, Math.round(+e.target.value || 0)));
     e.target.value = v; await saveSet({balance_low: v}, e.target.closest('.card')); };
+}
+
+// ---------- установка приложения (1.10.3) ----------
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function installCase() {
+  const ua = navigator.userAgent;
+  if (STANDALONE) return null;
+  const phone = /Android|iPhone|iPad|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  if (!phone) return null;
+  if (/Telegram/i.test(ua)) return 'tg';
+  if (IOS || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))) return /CriOS|FxiOS|EdgiOS|YaBrowser/.test(ua) ? 'ios-other' : 'ios';
+  if (INSTALL) return 'prompt';
+  return /MiuiBrowser|XiaoMi|SamsungBrowser|UCBrowser|YaBrowser|Firefox/.test(ua) ? 'android-other' : 'android';
+}
+function paintInstall() {
+  const box = $('#homeInstall'); if (!box) return;
+  const c = installCase(), later = +lsGet('inst_later') || 0;
+  if (!c || lsGet('inst_hide') === '1' || Date.now() < later) { box.style.display = 'none'; return; }
+  const steps = {
+    prompt: ['Ярлык на главном экране, отдельное окно и уведомления. Установка в одно нажатие.', ''],
+    android: ['Откройте меню ⋮ в Chrome → «Установить приложение» (или «Добавить на главный экран»).', ''],
+    'android-other': ['Установка работает в Chrome. Откройте эту страницу в Chrome: меню браузера → «Открыть в другом браузере» или вставьте ссылку в Chrome. Затем меню ⋮ → «Установить приложение».', ''],
+    ios: ['В Safari нажмите «Поделиться» (квадрат со стрелкой внизу) → «На экран “Домой”» → «Добавить».', ''],
+    'ios-other': ['На iPhone приложение ставится только из Safari. Откройте эту страницу в Safari, затем «Поделиться» → «На экран “Домой”».', ''],
+    tg: ['Из встроенного браузера Telegram установить нельзя. Нажмите ⋮ (или значок компаса) → «Открыть в браузере» — Chrome или Safari. Новую ссылку для входа пришлёт бот по команде /app.', '']}[c];
+  box.style.display = '';
+  box.innerHTML = `<h3>📲 Установить ассистента как приложение</h3><div style="font-size:14.5px;line-height:1.45">${esc(steps[0])}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${c === 'prompt' ? '<button class="btn pri" id="instGo">📲 Установить</button>' : ''}
+    <button class="btn sm" id="instLater">Позже</button><button class="btn sm" id="instNever">Больше не показывать</button></div>`;
+  const go = $('#instGo');
+  if (go) go.onclick = async () => { try { INSTALL.prompt(); const r = await INSTALL.userChoice; if (r && r.outcome === 'accepted') { lsSet('inst_hide', '1'); toast('✅ Устанавливаю…'); } } catch (e) {} INSTALL = null; paintInstall(); };
+  $('#instLater').onclick = () => { lsSet('inst_later', String(Date.now() + 7 * 864e5)); box.style.display = 'none'; };
+  $('#instNever').onclick = () => { lsSet('inst_hide', '1'); box.style.display = 'none'; toast('Хорошо. Вернуть можно в ⚙️ Настройки → 🔌 Интеграции'); };
+}
+// ---------- место: база и копии (1.10.3) ----------
+function sizeMb(v) { return v == null ? 'нет данных' : v >= 1024 ? numF(v / 1024, 1) + ' ГБ' : numF(v, v >= 10 ? 0 : 1) + ' МБ'; }
+async function renderSizeSet() {
+  const card = $('#sSizeCard'); let Z;
+  try { Z = await api('sizes'); } catch (e) { return; }
+  card.style.display = Z && Z.enabled ? '' : 'none';
+  if (!Z || !Z.enabled) return;
+  const row = (name, mb, lim, lv) => { const p = mb == null ? 0 : Math.min(100, Math.round(mb * 100 / lim));
+    return `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${name}</span><span>${sizeMb(mb)} из ${sizeMb(lim)}${mb == null ? '' : ' · ' + p + '%'}</span></div>
+      <div class="meter ${lv === 'crit' ? 'bad' : lv === 'warn' ? 'warn' : 'good'}"><i style="width:${p}%"></i></div></div>`; };
+  $('#sSizeBody').innerHTML = row('База ассистента', Z.db.mb, Z.db.limit_mb, Z.db.level) + row('Копии в Яндекс Облаке', Z.cloud.mb, Z.cloud.limit_mb, Z.cloud.level)
+    + `<div class="muted" style="font-size:13px">Фото и файлы в базе: ${sizeMb(Z.photos.mb)} (${Z.photos.count} шт.)${Z.disk && Z.disk.free_gb != null ? ' · свободно на диске сервера ' + numF(Z.disk.free_gb, 1) + ' ГБ' : ''}</div>`
+    + (Z.cloud.mb == null ? '<div class="muted" style="font-size:12.5px;margin-top:4px">Размер облака появится после обновления агента на сервере (в течение часа).</div>' : '');
+  $('#sShrink').onclick = async () => { $('#sShrink').disabled = true; $('#sShrinkRes').textContent = 'Сжимаю…';
+    try { const r = await api('sizes/shrink', {method: 'POST'}); $('#sShrinkRes').textContent = r.checked ? `Проверено ${r.checked}, сжато ${r.shrunk}, освобождено ${numF(r.saved_bytes / 1048576, 1)} МБ` : 'Крупных фото нет';
+      renderSizeSet(); } catch (e) { $('#sShrinkRes').textContent = '⚠️ ' + errText(e).slice(0, 120); } $('#sShrink').disabled = false; };
 }
 
 // ---------- старт ----------

@@ -27,7 +27,7 @@ from .util import esc
 
 log = logging.getLogger("release")
 
-VERSION = "1.10.2"
+VERSION = "1.10.3"
 HERE = Path(__file__).resolve().parent
 CHANGELOG = HERE.parent / "CHANGELOG.md"
 STATE = HERE.parent / "state"
@@ -281,6 +281,8 @@ async def version_reply(user) -> Reply:
     lb, off = h.get("local_backup") or {}, h.get("offsite") or {}
     lines.append(f"• На сервере: {_ago(lb.get('at'))}" + (f", {lb['size_mb']} МБ" if lb.get("size_mb") else ""))
     lines.append(f"• В Яндекс Облаке: {_ago(off.get('ok_at')) if off.get('ok_at') else 'не настроено'}")
+    if off.get("size_mb") is not None:
+        lines.append(f"• Размер копий в облаке: {off['size_mb']} МБ из 1024 (лимит бесплатного хранилища)")
     if h.get("disk"):
         lines.append(f"• Свободно на диске: {h['disk'].get('free_gb')} ГБ")
     if not h.get("agent_ok"):

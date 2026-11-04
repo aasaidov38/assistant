@@ -26,6 +26,7 @@ bash tests/run_all.sh --fresh     # миграции с нуля + все про
 | `core/app/web.py`, `web_life.py` | API панели `/web/api/…`; `current_user` (+ `scope.enter`), `_mirror` (копия в Telegram) |
 | `core/app/mobile.py` + `static/chat.html` | Чат `/web/chat` (и строка ввода внизу панели — `?embed=1`) |
 | `core/app/static/index.html` | Панель целиком (HTML+CSS+JS в одном файле): `GROUPS`, `load(t)`, `loadXxx()` на каждый подраздел |
+| `core/app/media.py`, `sizes.py` | 1.10.3: сжатие фото и лимит файла; размеры базы и облака, предупреждения 70/90% (облако считает агент, `host.json`) |
 | `core/app/balance.py` | 1.10.2: баланс GPTunnel (`/v1/balance`), история и прогноз, уведомления владельцу; кэш `app_state` `balance:*` |
 | `core/app/market.py`, `envdata.py`, `net.py` | 1.10: курсы, крипта, индексы, ставка и инфляция (кэш `app_state` `market:*`), магнитные бури Kp, пыльца, поиск города; все внешние запросы — через `net.get` (тесты подменяют) |
 | `core/app/release.py`, `scripts/host-agent.sh` | Версия, «что нового», обновление по кнопке |

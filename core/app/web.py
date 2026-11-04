@@ -34,16 +34,38 @@ def _hash(token: str) -> str:
 
 # ---------- Вход через бота ----------
 
+async def _login_url(user: users.User) -> str:
+    token = secrets.token_urlsafe(32)
+    await db.get_pool().execute(
+        "INSERT INTO web_login_tokens (token_hash, user_id, expires_at) VALUES ($1,$2,now()+$3::interval)",
+        _hash(token), user.id, LOGIN_TTL)
+    return f"{get_settings().public_url.rstrip('/')}/web/login?t={token}"
+
+
+async def install_reply(user: users.User) -> Reply:
+    """/app — как поставить ассистента на телефон ярлыком (версия 1.10.3)."""
+    if not get_settings().public_url:
+        return Reply(text="📲 Для приложения нужен публичный адрес: заполните PUBLIC_URL в .env (README, раздел «Публичный адрес через Caddy»).")
+    url = await _login_url(user)
+    return Reply(text=(
+        "📲 <b>Ассистент как приложение</b>\n\n"
+        "Магазин не нужен: это ярлык на главном экране с отдельным окном и уведомлениями.\n\n"
+        "<b>Важно:</b> ставить нужно из обычного браузера, а не из встроенного в Telegram. "
+        "Нажмите кнопку «Открыть панель», затем в меню ⋮ (или значок компаса) выберите «Открыть в браузере» — Chrome или Safari.\n\n"
+        "🤖 <b>Android (Chrome)</b>: откройте ссылку → войдите → на главной нажмите «Установить» "
+        "(или меню ⋮ → «Установить приложение»). На Xiaomi, если открылся «Браузер Mi», откройте ссылку в Chrome.\n\n"
+        "🍎 <b>iPhone (Safari)</b>: откройте ссылку → войдите → кнопка «Поделиться» (квадрат со стрелкой) → "
+        "«На экран “Домой”» → «Добавить». В Chrome на iPhone ярлык не ставится, только Safari.\n\n"
+        "Ссылка одноразовая, действует 10 минут, никому её не пересылайте. Новую: /app"),
+        buttons=[[Button(text="🌐 Открыть панель", url=url)]])
+
+
 async def login_link(user: users.User) -> Reply:
     s = get_settings()
     if not s.public_url:
         return Reply(text="🌐 Для веб-панели нужен публичный адрес: заполните PUBLIC_URL в .env "
                           "(README, раздел «Публичный адрес через Caddy»).")
-    token = secrets.token_urlsafe(32)
-    await db.get_pool().execute(
-        "INSERT INTO web_login_tokens (token_hash, user_id, expires_at) VALUES ($1,$2,now()+$3::interval)",
-        _hash(token), user.id, LOGIN_TTL)
-    url = f"{s.public_url.rstrip('/')}/web/login?t={token}"
+    url = await _login_url(user)
     return Reply(text="🌐 <b>Вход в веб-панель</b>\n\nНажмите «Открыть панель», затем «Войти».\n"
                       "Кнопка одноразовая и действует 10 минут. Никому её не пересылайте.\n"
                       "Выйти на всех устройствах: <code>/web off</code>",
@@ -179,17 +201,17 @@ MANIFEST = {
     "description": "Траты, питание, дела, покупки и напоминания семьи",
     "id": "/web/", "start_url": "/web/", "scope": "/web/", "display": "standalone",
     "background_color": "#1f3358", "theme_color": "#3b82f6",
-    "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192", "type": "image/png"},
-              {"src": "/web/static/icon-512.png?v=2", "sizes": "512x512", "type": "image/png"},
-              {"src": "/web/static/icon-maskable-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
-    "shortcuts": [{"name": "Чат", "url": "/web/chat", "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192"}]},
-                  {"name": "Карты лояльности", "url": "/web/#cards", "icons": [{"src": "/web/static/icon-192.png?v=2", "sizes": "192x192"}]}],
+    "icons": [{"src": "/web/static/icon-192.png?v=3", "sizes": "192x192", "type": "image/png"},
+              {"src": "/web/static/icon-512.png?v=3", "sizes": "512x512", "type": "image/png"},
+              {"src": "/web/static/icon-maskable-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
+    "shortcuts": [{"name": "Чат", "url": "/web/chat", "icons": [{"src": "/web/static/icon-192.png?v=3", "sizes": "192x192"}]},
+                  {"name": "Карты лояльности", "url": "/web/#cards", "icons": [{"src": "/web/static/icon-192.png?v=3", "sizes": "192x192"}]}],
 }
 
 
 @router.get("/web/manifest.webmanifest")
 async def manifest():
-    return JSONResponse(MANIFEST, media_type="application/manifest+json", headers={"Cache-Control": "public, max-age=86400"})
+    return JSONResponse(MANIFEST, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})   # 1.10.3: без суточного кэша, иначе телефон долго видит старые значки
 
 
 @router.get("/web/sw.js")
@@ -501,6 +523,23 @@ async def balance_data(user: users.User = Depends(current_user)):
     if not balance.enabled() or not await release.is_owner(user):
         return {"enabled": False}
     return await balance.overview((await prefs.get(user.id)).get("balance_low", balance.DEFAULT_LOW))
+
+
+@router.get("/web/api/sizes")
+async def sizes_data(user: users.User = Depends(current_user)):
+    """Размер базы и облачных копий — только владельцу."""
+    from . import release, sizes
+    if not await release.is_owner(user):
+        return {"enabled": False}
+    return {"enabled": True, **await sizes.measure()}
+
+
+@router.post("/web/api/sizes/shrink")
+async def sizes_shrink(user: users.User = Depends(current_user)):
+    from . import media, release
+    if not await release.is_owner(user):
+        raise HTTPException(403, "Только владелец")
+    return await media.shrink_old()
 
 
 @router.get("/web/api/city/search")

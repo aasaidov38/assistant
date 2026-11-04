@@ -161,7 +161,7 @@ async def main():
     print("7. Значок и заставка")
     m = web.MANIFEST
     srcs = [i["src"] for i in m["icons"]]
-    check(all(x.endswith("?v=2") for x in srcs) and len(srcs) == 3, "в манифесте новые адреса значков (с версией, чтобы обошёл кэш)", srcs)
+    check(all(x.endswith("?v=3") for x in srcs) and len(srcs) == 3, "в манифесте новые адреса значков (с версией, чтобы обошёл кэш)", srcs)
     import struct
 
     def png(name):                      # размер и вид PNG из заголовка (без сторонних библиотек)

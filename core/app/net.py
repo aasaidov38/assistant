@@ -5,7 +5,7 @@
 import httpx
 
 _client = httpx.AsyncClient(timeout=15, follow_redirects=True,
-                            headers={"User-Agent": "Mozilla/5.0 (compatible; FamilyAssistant/1.10.2)"})
+                            headers={"User-Agent": "Mozilla/5.0 (compatible; FamilyAssistant/1.10.3)"})
 
 
 async def get(url: str, params: dict | None = None, as_: str = "json", headers: dict | None = None):

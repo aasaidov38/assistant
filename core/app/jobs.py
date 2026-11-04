@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from . import balance, bills, debts, digest, market, release, garage, meds, meters, morning, notify, papers, tasks, ticktick_sync, trips
+from . import balance, bills, sizes, debts, digest, market, release, garage, meds, meters, morning, notify, papers, tasks, ticktick_sync, trips
 from .config import get_settings
 from .db import get_pool
 from .schemas import Button, Reply
@@ -54,7 +54,7 @@ async def cleanup() -> None:
 async def loop(stop: asyncio.Event) -> None:
     while not stop.is_set():
         for job in (send_reminders, meds.send_due, deliver_events, digest.send_due, morning.send_due, cleanup,
-                    ticktick_sync.run, notify.flush_outbox, release.check, debts.send_due, bills.send_due, papers.send_due, meters.send_due, garage.send_due, trips.send_due, market.refresh_due, balance.refresh_due):
+                    ticktick_sync.run, notify.flush_outbox, release.check, debts.send_due, bills.send_due, papers.send_due, meters.send_due, garage.send_due, trips.send_due, market.refresh_due, balance.refresh_due, sizes.check_due):
             try:
                 await job()
             except Exception:
