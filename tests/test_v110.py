@@ -315,7 +315,15 @@ async def main():
     await market.refresh_due()
     check(True, "refresh_due не падает")
 
+    print("15. Регрессия 1.10.1: повторные функции в панели")
+    import re, pathlib
+    src = pathlib.Path(__file__).resolve().parent.parent.joinpath("core/app/static/index.html").read_text(encoding="utf-8")
+    names = re.findall(r"^(?:async )?function (\w+)\(", src, re.M)
+    dup = sorted({n for n in names if names.count(n) > 1})
+    check(not dup, "в панели нет двух функций с одним именем (перекрытие ломало главную)", dup)
+
     print("ИТОГ:", "всё прошло" if not FAILS else f"ошибок {len(FAILS)}: {FAILS}")
 
 
 asyncio.run(main())
+

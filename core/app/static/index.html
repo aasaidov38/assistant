@@ -1556,7 +1556,7 @@ function wxExtra(w) {
 }
 const pctF = v => v == null ? '' : `<span style="color:${v > 0 ? 'var(--good-ink)' : v < 0 ? 'var(--bad)' : 'var(--muted)'}">${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2).replace('.', ',')}%</span>`;
 const numF = (v, d = 2) => v == null ? '–' : v.toLocaleString('ru-RU', {minimumFractionDigits: d, maximumFractionDigits: d});
-function spark(series, w = 84, h = 26) {
+function miniLine(series, w = 84, h = 26) {
   if (!series || series.length < 2) return '';
   const lo = Math.min(...series), hi = Math.max(...series), sp = Math.max(hi - lo, 1e-9);
   const pts = series.map((v, i) => `${(i * w / (series.length - 1)).toFixed(1)},${(h - 3 - (v - lo) * (h - 6) / sp).toFixed(1)}`).join(' ');
@@ -1570,7 +1570,7 @@ function marketCompact(M) {
   let h = '';
   for (const c of ['USD', 'EUR']) { const x = fx(c); if (x) h += line(c, numF(x.value) + ' ₽', pctF(x.change_pct)); }
   const b = cr('BTC'); if (b) h += line('BTC', '$' + numF(b.usd, 0), pctF(b.change_pct));
-  h += M.indices.items.map(i => line(i.name.replace(' Composite', ''), numF(i.value, 0), pctF(i.day_pct), spark(i.series, 56, 20))).join('');
+  h += M.indices.items.map(i => line(i.name.replace(' Composite', ''), numF(i.value, 0), pctF(i.day_pct), miniLine(i.series, 56, 20))).join('');
   const m = M.macro;
   if (m.key_rate != null || m.inflation != null) h += `<div class="muted" style="font-size:13px;margin-top:8px">${m.key_rate != null ? 'Ключевая ставка ' + numF(m.key_rate) + '%' : ''}${m.key_rate != null && m.inflation != null ? ' · ' : ''}${m.inflation != null ? 'инфляция ' + numF(m.inflation) + '%' : ''}</div>`;
   if (M.fx.stale || M.indices.stale || M.crypto.stale) h += '<div class="muted" style="font-size:12px;margin-top:4px">⚠️ Часть данных не обновилась</div>';
@@ -1583,7 +1583,7 @@ function marketFull(M) {
   if (m.key_rate != null || m.inflation != null) h += '<div class="kpis" style="margin:4px 0 12px">'
     + (m.key_rate != null ? `<div class="card kpi"><div class="l">Ключевая ставка ЦБ</div><div class="v">${numF(m.key_rate)}%</div>${m.key_rate_date ? `<div class="muted" style="font-size:12px">на ${dmy(m.key_rate_date)}</div>` : ''}</div>` : '')
     + (m.inflation != null ? `<div class="card kpi"><div class="l">Инфляция в России</div><div class="v">${numF(m.inflation)}%</div><div class="muted" style="font-size:12px">за ${monthName(m.inflation_month)}, к году ранее${m.target ? ' · цель ' + numF(m.target, 0) + '%' : ''}</div></div>` : '') + '</div>';
-  if (M.indices.items.length) h += '<h3 style="margin-top:10px">Индексы</h3><div class="scroll"><table>' + M.indices.items.map(i => tr(i.name, numF(i.value, 2), pctF(i.day_pct), spark(i.series), `за месяц ${pctF(i.month_pct)} · на ${dmy(i.date)}`)).join('') + '</table></div>';
+  if (M.indices.items.length) h += '<h3 style="margin-top:10px">Индексы</h3><div class="scroll"><table>' + M.indices.items.map(i => tr(i.name, numF(i.value, 2), pctF(i.day_pct), miniLine(i.series), `за месяц ${pctF(i.month_pct)} · на ${dmy(i.date)}`)).join('') + '</table></div>';
   if (M.fx.items.length) h += `<h3 style="margin-top:14px">Курсы ЦБ РФ${M.fx.date ? ' на ' + dmy(M.fx.date) : ''}</h3><div class="scroll"><table>` + M.fx.items.map(x => tr(x.name, numF(x.value) + ' ₽', pctF(x.change_pct))).join('') + '</table></div>';
   if (M.crypto.items.length) h += '<h3 style="margin-top:14px">Криптовалюты <span class="muted" style="font-weight:400;font-size:12px">за сутки</span></h3><div class="scroll"><table>' + M.crypto.items.map(x => tr(x.name + ' ' + x.code, '$' + numF(x.usd, x.usd < 10 ? 3 : 2), pctF(x.change_pct), '', x.rub ? '≈ ' + numF(x.rub, 0) + ' ₽' : '')).join('') + '</table></div>';
   if (M.fx.stale || M.indices.stale || M.crypto.stale || M.macro.stale) h += '<div class="muted" style="font-size:12.5px;margin-top:8px">⚠️ Источник временно недоступен — показаны последние сохранённые данные.</div>';
