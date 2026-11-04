@@ -1,7 +1,7 @@
-"""Публичный сайт проекта (версия 1.7.2): https://assistant.saidov.ru/
+"""Публичный сайт проекта: https://assistant.saidov.ru/
 
-Статические файлы лежат в static/site: index.html и картинки в img/.
-Адреса: «/» — страница, «/site/…» — её файлы. Данных семьи здесь нет: скриншоты сделаны на демо-данных.
+Многостраничный: страницы *.html, css/, js/ и картинки img/ лежат в static/site (собираются из site-src/build.py).
+Адреса: «/» — главная, «/site/…» — страницы и файлы (например, /site/money.html). Данных семьи здесь нет: скриншоты сделаны на демо-данных.
 Чтобы сайт открывался снаружи, в Caddy к @public добавлены пути «/» и «/site/*» (docs/DEPLOY_CLAUDE_CODE.md).
 """
 from pathlib import Path
@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 router = APIRouter()
 SITE = (Path(__file__).resolve().parent / "static" / "site").resolve()
 TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml",
-         ".css": "text/css", ".js": "text/javascript", ".ico": "image/x-icon"}
+         ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".ico": "image/x-icon"}
 
 
 @router.get("/", include_in_schema=False)
@@ -27,4 +27,6 @@ async def site_file(path: str):
     # только файлы внутри static/site и только известных типов
     if SITE not in f.parents or not f.is_file() or f.suffix.lower() not in TYPES:
         raise HTTPException(404, "Нет такого файла")
-    return FileResponse(f, media_type=TYPES[f.suffix.lower()], headers={"Cache-Control": "public, max-age=86400"})
+    # страницы и скрипты кэшируются коротко (чтобы правки были видны быстро), картинки — на сутки
+    age = 600 if f.suffix.lower() in (".html", ".css", ".js") else 86400
+    return FileResponse(f, media_type=TYPES[f.suffix.lower()], headers={"Cache-Control": f"public, max-age={age}"})

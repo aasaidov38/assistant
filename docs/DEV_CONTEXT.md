@@ -34,7 +34,7 @@ bash tests/run_all.sh --fresh     # миграции с нуля + все про
 | `core/CHANGELOG.md`, `VERSION` | «Что нового» и номер версии (совпадает с `release.VERSION`, проверяет тест) |
 | `tests/` | Проверки на настоящей PostgreSQL; `stubs/` — заглушки asyncpg (через psql), fastapi, httpx, pydantic_settings |
 | `adapters/telegram/bot.py` | Адаптер Telegram, меню команд (`BotCommand`) |
-| `core/app/static/site/` | Публичный сайт: `LOG` (история), `LANES` (дорожная карта), `FEATURES`, скриншоты `img/` |
+| `site-src/` → `core/app/static/site/` | Публичный сайт, 15 страниц (с 1.10.4). Правки — в `site-src/` (`build.py` — страницы и меню, `data.js` — `LOG` история, `LANES` карта, `FEATURES`, `EXAMPLES`, `site.css`, `site.js`), затем `python3 site-src/build.py core/app/static/site --repo`. Фото — `static/site/img/ph/`, скриншоты — `img/shots/` |
 
 Android-приложение — отдельный репозиторий `aasaidov38/assistant-android` (один `MainActivity.java`, мост `window.Android`).
 Колбэки (`onVoice…`, `onShared`) он вызывает у главной страницы WebView.
