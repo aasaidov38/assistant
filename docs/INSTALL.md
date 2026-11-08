@@ -122,8 +122,10 @@ Telegram-бот для семьи: учёт доходов и расходов (
 Подключитесь к серверу по SSH. В Windows откройте **PowerShell** (Пуск → PowerShell):
 
 ```bash
-ssh root@193.221.202.186
+ssh root@<IP-сервера>
 ```
+
+Везде далее `<IP-сервера>` — это IP-адрес вашего сервера (его показывает хостинг после создания сервера).
 
 Если заходите не под `root`, замените имя пользователя. Дальше все команды выполняются на сервере.
 
@@ -157,7 +159,7 @@ free -h
 Скачайте архив `assistant.zip` на компьютер. В **PowerShell на компьютере** (не на сервере) выполните, подставив свой путь к архиву:
 
 ```powershell
-scp $HOME\Downloads\assistant.zip root@193.221.202.186:/opt/
+scp $HOME\Downloads\assistant.zip root@<IP-сервера>:/opt/
 ```
 
 Потом на сервере:
@@ -408,7 +410,7 @@ docker compose up -d
 
 | Тип | Имя | Значение |
 |---|---|---|
-| A | `assistant` | `193.221.202.186` |
+| A | `assistant` | `<IP-сервера>` |
 
 Проверка через 5–30 минут (на сервере):
 
@@ -560,7 +562,7 @@ docker compose up -d
 Полный список с примерами можно посмотреть на самом сервере. С компьютера пробросьте порт:
 
 ```powershell
-ssh -L 8100:127.0.0.1:8100 root@193.221.202.186
+ssh -L 8100:127.0.0.1:8100 root@<IP-сервера>
 ```
 
 и, не закрывая окно, откройте в браузере http://127.0.0.1:8100/docs
@@ -598,7 +600,7 @@ bash scripts/restore.sh             # восстановить из послед
 Копии лежат на том же сервере. Раз в месяц скачивайте свежую на компьютер (PowerShell на компьютере):
 
 ```powershell
-scp root@193.221.202.186:/opt/assistant/backups/last/assistant-latest.sql.gz $HOME\Downloads\
+scp root@<IP-сервера>:/opt/assistant/backups/last/assistant-latest.sql.gz $HOME\Downloads\
 ```
 
 ---

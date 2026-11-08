@@ -8,6 +8,22 @@
 
 ---
 
+## Как выглядит
+
+Скриншоты демо-кабинета, данные вымышленные.
+
+<p>
+  <img src="core/app/static/site/img/shots/home.jpg" alt="Главная панель: расходы, калории, накопления, ближайшие дела" width="49%">
+  <img src="core/app/static/site/img/shots/finance.jpg" alt="Раздел «Финансы»: категории, расходы по дням, лимиты" width="49%">
+</p>
+<p>
+  <img src="core/app/static/site/img/shots/health.jpg" alt="Раздел «Здоровье»" width="49%">
+  <img src="core/app/static/site/img/shots/chat-phone.jpg" alt="Чат с ассистентом на телефоне" width="22%">
+  <img src="core/app/static/site/img/shots/home-dark-phone.jpg" alt="Главная на телефоне, тёмная тема" width="22%">
+</p>
+
+---
+
 ## Что умеет
 
 - **Запись одной фразой.** «Пятёрочка 1450 продукты» → трата 1 450 ₽, категория «Продукты», привязка к магазину. Категорию и дату система определяет сама.
