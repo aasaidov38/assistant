@@ -400,7 +400,7 @@ docker compose up -d
 
 ## 10. Публичный адрес через Caddy
 
-По желанию. Нужен, чтобы TickTick подключался без копирования адреса, а позже для Алисы и веб-интерфейса. Делается через тот же Caddy, который уже обслуживает n8n.saidov.ru.
+По желанию. Нужен, чтобы TickTick подключался без копирования адреса, а позже для Алисы и веб-интерфейса. Делается через Caddy, который обслуживает все сайты сервера (проект `/opt/caddy`).
 
 ### 10.1. DNS
 
@@ -420,50 +420,29 @@ getent hosts assistant.saidov.ru
 
 ### 10.2. Подключить Caddy к сети ассистента
 
-Посмотрите, как называются сервисы в стеке n8n:
+Caddy работает в отдельном проекте `/opt/caddy` (там же `Caddyfile` и папка `sites` со статическими сайтами), n8n — в `/opt/n8n`. Оба подключены к общей сети `assistant_shared`. Проверьте:
 
 ```bash
-cd /opt/n8n
-ls
-docker compose ps --format '{{.Service}}'
+docker network inspect assistant_shared --format '{{range .Containers}}{{.Name}} {{end}}'
 ```
 
-Сделайте копию файла на всякий случай:
-
-```bash
-cp docker-compose.yml docker-compose.yml.bak
-nano docker-compose.yml
-```
-
-В сервис Caddy (обычно называется `caddy`) и в сервис `n8n` добавьте блок `networks`. Если у сервиса уже есть `networks`, допишите только строку `- assistant_shared`:
+В списке должны быть `caddy-caddy-1` и `n8n-n8n-1`. Если Caddy там нет, в `/opt/caddy/docker-compose.yml` у сервиса `caddy` должен быть блок `networks`, а в конце файла (без отступа слева) — описание сети:
 
 ```yaml
   caddy:
     # ... всё, что было, оставить как есть ...
     networks:
-      - default
       - assistant_shared
 
-  n8n:
-    # ... всё, что было, оставить как есть ...
-    networks:
-      - default
-      - assistant_shared
-```
-
-В самый конец файла (без отступа слева) добавьте:
-
-```yaml
 networks:
   assistant_shared:
     external: true
 ```
 
-Если блок `networks:` в конце файла уже есть, добавьте в него только две строки с `assistant_shared`.
-
 Проверьте, что файл без ошибок, и примените:
 
 ```bash
+cd /opt/caddy
 docker compose config -q && echo "Файл в порядке"
 docker compose up -d
 ```
@@ -471,10 +450,10 @@ docker compose up -d
 ### 10.3. Адрес в Caddyfile
 
 ```bash
-nano /opt/n8n/Caddyfile
+nano /opt/caddy/Caddyfile
 ```
 
-Если файл называется иначе, найдите его: `ls /opt/n8n`. Добавьте в конец:
+Добавьте в конец:
 
 ```
 assistant.saidov.ru {
@@ -486,10 +465,10 @@ assistant.saidov.ru {
 }
 ```
 
-Снаружи доступны только вход TickTick, проверка состояния, веб-панель (с входом через бота) и адрес для Алисы. Остальное API закрыто. Примените (вместо `caddy` подставьте имя сервиса из 10.2):
+Снаружи доступны только вход TickTick, проверка состояния, веб-панель (с входом через бота) и адрес для Алисы. Остальное API закрыто. Примените:
 
 ```bash
-cd /opt/n8n
+cd /opt/caddy
 docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
@@ -693,7 +672,7 @@ bash scripts/update.sh                          # копия базы, пере�
 Если вы настраивали Caddy по старой инструкции, обновите строку:
 
 ```bash
-nano /opt/n8n/Caddyfile
+nano /opt/caddy/Caddyfile
 ```
 
 Найдите строку, начинающуюся с `@public path`, и замените её целиком на:
@@ -705,7 +684,7 @@ nano /opt/n8n/Caddyfile
 Сохраните (Ctrl+O, Enter, Ctrl+X) и примените:
 
 ```bash
-cd /opt/n8n && docker compose restart caddy
+cd /opt/caddy && docker compose restart caddy
 ```
 
 **Как войти.** Напишите боту `/web`. Он пришлёт ссылку «Открыть панель», откройте её и нажмите «Войти».

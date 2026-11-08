@@ -17,7 +17,7 @@
 Задача: перевести моего семейного ассистента на сервере на обновления из GitHub и установить версию 1.8.
 
 Сервер: ssh-алиас `assistant` (root, Ubuntu 24.04). Ассистент лежит в /opt/assistant (Docker Compose:
-core, telegram, db, backup). Рядом работают n8n и Caddy в /opt/n8n — их НЕ трогать.
+core, telegram, db, backup). Рядом работают n8n (/opt/n8n) и Caddy (/opt/caddy) — их НЕ трогать.
 Код: закрытый репозиторий GitHub aasaidov38/assistant, ветка stable.
 
 Правила:
@@ -84,7 +84,7 @@ core, telegram, db, backup). Рядом работают n8n и Caddy в /opt/n8
      → номер версии (нужно для push-уведомлений).
 
 7a. Сайт проекта (появился в 1.7.2; если 1.7.2 ещё не ставили, Caddy его не пропускает):
-   ssh assistant "grep -n '@public' /opt/n8n/Caddyfile"
+   ssh assistant "grep -n '@public' /opt/caddy/Caddyfile"
    Если в строке блока assistant.saidov.ru уже есть « / /site/*» — пропусти. Иначе выполни шаг 6b из
    docs/DEPLOY_CLAUDE_CODE.md (он есть в папке /opt/assistant/docs на сервере: копия Caddyfile, добавить « / /site/*»
    в строку @public, caddy validate, caddy reload, проверки).

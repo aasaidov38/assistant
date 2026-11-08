@@ -146,7 +146,7 @@ POST /v1/inbound
 | Что | Файл | Детали |
 |---|---|---|
 | Сайт | `site.py`, `static/site/`, `site-src/` | С 1.10.4 — 15 страниц: `GET /` → `index.html` (в `<base href="/site/">`), `GET /site/{path}` → файлы только из `static/site` и только известных типов (html, jpg, png, webp, svg, css, js, ico); кэш страниц, стилей и скриптов 10 минут, картинок сутки. Страницы собирает `site-src/build.py` из `data.js`, `site.css`, `site.js` |
-| Caddy | `/opt/n8n/Caddyfile` | `@public path … / /site/*` |
+| Caddy | `/opt/caddy/Caddyfile` | `@public path … / /site/*` |
 | Мелочь | `debts.py`, `web_life.py` | подписи сроков долгов: «Имя: ждём возврат» / «Имя: вернуть» |
 
 ## План развития

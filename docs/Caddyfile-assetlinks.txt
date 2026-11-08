@@ -1,4 +1,4 @@
-# Вставить ВНУТРЬ блока assistant.saidov.ru { ... } в /opt/n8n/Caddyfile,
+# Вставить ВНУТРЬ блока assistant.saidov.ru { ... } в /opt/caddy/Caddyfile,
 # первой строкой после открывающей скобки. Нужно, чтобы ссылки https://assistant.saidov.ru/web...
 # (в том числе ссылка входа из бота) открывались сразу в приложении «Ассистент».
 	handle /.well-known/assetlinks.json {
