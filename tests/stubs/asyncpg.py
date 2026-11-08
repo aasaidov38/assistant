@@ -32,7 +32,13 @@ def conv(v):
 
 FAKE_NOW = None   # тест может подменить «сейчас» в запросах
 
-def run(sql, args, rows):
+def run(sql, args, rows, dbname=None):
+    psql = PSQL + (['-d', dbname] if dbname else [])
+    if not args and not rows and (re.match(r"\s*(create|drop|alter)", sql, re.I) or sql.count(';') > 1):
+        p = subprocess.run(psql, input=sql, capture_output=True, text=True)   # DDL и сценарии из нескольких команд
+        if p.returncode:
+            raise RuntimeError(p.stderr.strip() + '\nSQL: ' + sql[:300])
+        return ''
     if FAKE_NOW is not None:
         ts = FAKE_NOW.isoformat()
         sql = re.sub(r"\bnow\(\)", f"'{ts}'::timestamptz", sql)
@@ -46,7 +52,7 @@ def run(sql, args, rows):
                   f"SELECT coalesce(jsonb_agg(t), '[]')::text FROM r_{name} t;")
     else:
         script = f"PREPARE {name} AS {sql};\n\\set QUIET off\n{ex};"
-    p = subprocess.run(PSQL, input=script, capture_output=True, text=True)
+    p = subprocess.run(psql, input=script, capture_output=True, text=True)
     if p.returncode:
         raise RuntimeError(p.stderr.strip() + "\nSQL: " + sql)
     out = p.stdout.strip()
@@ -55,17 +61,27 @@ def run(sql, args, rows):
     return out.splitlines()[-1] if out else ""
 
 class FakeConn:
-    async def fetch(self, sql, *a): return run(sql, a, True)
+    db = None          # имя базы; None — база из переменных PG*
+    async def fetch(self, sql, *a): return run(sql, a, True, self.db)
     async def fetchrow(self, sql, *a):
-        r = run(sql, a, True) if re.match(r"\s*(select|with)", sql, re.I) or re.search(r"\breturning\b", sql, re.I) else None
+        r = run(sql, a, True, self.db) if re.match(r"\s*(select|with)", sql, re.I) or re.search(r"\breturning\b", sql, re.I) else None
         return r[0] if r else None
     async def fetchval(self, sql, *a):
         r = await self.fetchrow(sql, *a)
         return next(iter(r.values())) if r else None
-    async def execute(self, sql, *a): return run(sql, a, False)
+    async def execute(self, sql, *a): return run(sql, a, False, self.db)
+    async def close(self): pass
     def transaction(self, **k): return _Ctx(self)
     def acquire(self): return _Ctx(self)
 class _Ctx:
     def __init__(self, c): self.c = c
     async def __aenter__(self): return self.c
     async def __aexit__(self, *e): return False
+
+
+class FakePool(FakeConn):
+    def __init__(self, dbname): self.db = dbname
+
+async def create_pool(dsn=None, **kw):
+    """Пул на указанную в dsn базу (имя — последняя часть адреса)."""
+    return FakePool(re.sub(r"[?].*$", "", dsn or "").rsplit("/", 1)[-1] or None)

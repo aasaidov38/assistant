@@ -277,3 +277,6 @@ footer .fine{grid-column:1/-1;padding-top:14px;border-top:1px solid var(--line);
 .theme button:hover{color:var(--ink)}
 .theme button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 @media (max-width:480px){.brand small{display:none}.theme button{width:30px}}
+
+/* 1.10.7: кнопка «Демо» в шапке прячется на узких экранах (на телефоне есть в главной и внизу страницы) */
+@media (max-width:900px){.top .r .btn.demo{display:none}}

@@ -22,6 +22,10 @@ class AIError(Exception):
     pass
 
 
+# Демо-кабинет (1.10.7) ставит сюда проверку лимитов; в обычной установке пусто и ничего не меняется.
+GUARD = None
+
+
 async def _post(url: str, **kwargs) -> httpx.Response:
     """POST с повтором при перегрузке или сбое сервиса (до 3 попыток)."""
     last: Exception | None = None
@@ -43,6 +47,8 @@ async def _post(url: str, **kwargs) -> httpx.Response:
 async def complete(system: str, text: str, image_b64: str | None = None,
                    mime: str = "image/jpeg", max_tokens: int = 1500) -> str:
     """Спрашивает основную модель; если она недоступна, пробует запасную (LLM_FALLBACK_MODEL)."""
+    if GUARD:
+        GUARD(image_b64 is not None)
     s = get_settings()
     key = s.llm_api_key.strip()
     if not key:
@@ -107,6 +113,8 @@ async def _complete_with(model: str, key: str, system: str, text: str, image_b64
 async def complete_document(system: str, text: str, doc_b64: str, mime: str = "application/pdf",
                             max_tokens: int = 8000) -> dict:
     """PDF целиком в модель (например, банковская выписка). Работает только с Claude (LLM_PROVIDER=anthropic)."""
+    if GUARD:
+        GUARD(True, "doc")
     s = get_settings()
     if s.llm_provider != "anthropic":
         raise AIError("PDF-файлы читает только Claude (LLM_PROVIDER=anthropic). Пришлите выписку в CSV.")
@@ -165,6 +173,8 @@ def audio_name(mime: str | None) -> tuple[str, str]:
 
 async def transcribe(audio: bytes, filename: str | None = None, mime: str = "audio/ogg") -> str:
     """Голос в текст через OpenAI-совместимый API (Groq, OpenAI и др.)."""
+    if GUARD:
+        GUARD(True, "voice")
     if not filename:
         filename, mime = audio_name(mime)
     s = get_settings()

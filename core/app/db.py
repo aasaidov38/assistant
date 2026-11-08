@@ -1,4 +1,5 @@
 """Подключение к PostgreSQL и применение миграций."""
+import contextvars
 import json
 import logging
 from pathlib import Path
@@ -9,6 +10,9 @@ log = logging.getLogger("db")
 MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
 pool: asyncpg.Pool | None = None
+# Демо-кабинет (1.10.7): у каждого посетителя своя база. Запрос кладёт её пул сюда, get_pool() отдаёт его вместо общего.
+# В обычной установке переменная всегда пуста, поведение не меняется.
+_override: contextvars.ContextVar = contextvars.ContextVar("db_pool_override", default=None)
 
 
 async def _init_conn(conn: asyncpg.Connection) -> None:
@@ -33,6 +37,9 @@ async def close() -> None:
 
 
 def get_pool() -> asyncpg.Pool:
+    p = _override.get()
+    if p is not None:
+        return p
     assert pool is not None, "База не подключена"
     return pool
 

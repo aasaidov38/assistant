@@ -118,6 +118,7 @@ header .shut{display:none;font-size:18px}
 .embed header::before{content:"";position:absolute;top:5px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
 .embed footer{padding-top:6px}
 .embed.open main{scroll-behavior:auto}
+html.demo #attach{display:none}
 </style>
 </head>
 <body>
@@ -161,8 +162,10 @@ header .shut{display:none;font-size:18px}
 'use strict';
 const $ = s => document.querySelector(s);
 const list = $('#list'), text = $('#text'), sendBtn = $('#send');
+if (window.DEMO) text.placeholder = 'Например: Пятёрочка 1450 продукты';
 const APP = !!(window.Android && window.Android.isApp && (() => { try { return Android.isApp(); } catch (e) { return false; } })());
 const KEY = 'chat-history-v1', MAX = 15 * 1024 * 1024;
+if (window.DEMO) { document.documentElement.classList.add('demo'); }
 // ---------- 1.8.1: встраивание в панель (строка ввода внизу любого раздела) ----------
 // Панель держит эту страницу в рамке /web/chat?embed=1. Свёрнуто — видна только строка ввода,
 // развёрнуто — переписка снизу на 80% экрана. Панель и страница обмениваются сообщениями postMessage.
@@ -403,7 +406,8 @@ window.onShared = function () {
 // ---------- голос: удерживайте 🎙, как в Telegram ----------
 // В приложении пишет Android (ogg), в браузере — MediaRecorder (webm / ogg / mp4 у Safari).
 const WEBREC = !APP && !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-const VOICE = APP || WEBREC;
+const DEMO = !!window.DEMO;      // демо-кабинет: без фото, файлов и голоса
+const VOICE = !DEMO && (APP || WEBREC);
 let hold = null, locked = false, skipClick = false, mr = null, chunks = [], stream = null;
 const holdHint = () => add({from: 'sys', text: '🎙 Удерживайте кнопку, пока говорите, и отпустите — сообщение уйдёт. Сдвиг влево — отмена, вверх — запись без рук.'});
 const MIN_MS = 500, CANCEL_DX = 90, LOCK_DY = 70;

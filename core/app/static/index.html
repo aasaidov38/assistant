@@ -311,6 +311,17 @@ a.btn{text-decoration:none;display:inline-block}
 .kpi .v.lent{color:var(--good-ink)}.kpi .v.borrowed{color:color-mix(in srgb,var(--serious) 80%,var(--ink))}
 .balance{display:flex;height:14px;border-radius:999px;overflow:hidden;gap:2px;margin-top:12px;background:var(--card)}
 .balance i{display:block;height:100%;transform-origin:left;animation:grow .9s var(--ease) both}
+
+/* ---- демо-кабинет (1.10.7): включается, если страницу отдали с window.DEMO ---- */
+#demoBar{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 14px;background:linear-gradient(90deg,#a85a2c,#c4733c);color:#fff;font-size:13.5px}
+html.demo #demoBar{display:flex}
+#demoBar b{letter-spacing:.04em}#demoBar .sp{flex:1}
+#demoBar button,#demoBar a{font:inherit;font-size:13px;background:#ffffff26;color:#fff;border:1px solid #ffffff55;border-radius:999px;padding:3px 12px;cursor:pointer;text-decoration:none;white-space:nowrap}
+#demoBar button:hover,#demoBar a:hover{background:#ffffff40}
+html.demo .demo-hide{display:none!important}
+#demoEnd{position:fixed;inset:0;z-index:99;background:#0009;display:none;align-items:center;justify-content:center;padding:20px}
+#demoEnd.on{display:flex}#demoEnd .box{background:var(--card);color:var(--text,inherit);border-radius:16px;padding:26px 24px;max-width:420px;text-align:center}
+#demoEnd .box h3{margin:0 0 8px}#demoEnd .box a{display:inline-block;margin-top:14px}
 </style>
 </head>
 <body>
@@ -321,6 +332,8 @@ function hideSplash() { const s = document.getElementById('splash'); if (!s) ret
 try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standalone) && !sessionStorage.getItem('splash')) {
   sessionStorage.setItem('splash', '1'); document.getElementById('splash').classList.add('on'); window.__splash = Date.now(); setTimeout(hideSplash, 6000); } } catch (e) {}</script>
 <header>
+  <div id="demoBar"><b>🧪 ДЕМО</b><span>вымышленная семья, правки видны только вам; <span id="demoLeft">…</span></span><span class="sp"></span>
+    <button type="button" id="demoAs"></button><button type="button" id="demoReset">↺ Начать заново</button><a id="demoSite" href="/" target="_blank" rel="noopener">Хочу такой же →</a></div>
   <div class="top"><h1>🏠 Семейный <b>ассистент</b></h1><nav class="groups" id="groupsTop" aria-label="Разделы"></nav><span id="me" class="muted"></span></div>
   <nav id="tabs" aria-label="Подразделы">
     <button data-t="home" data-g="home" class="on">🏠 Главная</button>
@@ -333,6 +346,7 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
 </header>
 <main>
 <section id="home" class="on">
+  <div class="card" id="demoTips" style="display:none;margin-bottom:14px"></div>
   <div class="card" id="homeInstall" style="display:none;margin-bottom:14px"></div>
   <div class="kpis k4" id="homeKpi">
     <div class="card kpi hero"><div class="l">Расходы за месяц</div><div class="v" id="hkSpend"><span class="skel" style="display:block;width:60%;height:30px"></span></div>
@@ -579,7 +593,7 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
       <h3 style="margin-top:14px">💬 Связь</h3>
       <div class="opt"><div class="grow">Копии в Telegram<div class="sub">Дублировать в бот то, что сделано в панели и через Алису</div></div>
         <label class="sw"><input type="checkbox" id="sMirror"><span></span></label></div>
-      <div class="muted" style="font-size:12.5px;margin-top:8px">TickTick, Алиса и push-уведомления — в карточке «Интеграции» ниже.</div></div>
+      <div class="muted demo-hide" style="font-size:12.5px;margin-top:8px">TickTick, Алиса и push-уведомления — в карточке «Интеграции» ниже.</div></div>
     <div class="card"><h3>🔔 Напоминания <span class="saved" data-saved>✓ Сохранено</span></h3><div id="sTopics"></div></div>
     <div class="card"><h3>🎯 Мои цели <span class="saved" data-saved>✓ Сохранено</span></h3>
       <div class="goals" id="sGoals"></div>
@@ -597,20 +611,20 @@ try { if ((matchMedia('(display-mode: standalone)').matches || navigator.standal
     <div class="opt"><div class="grow">Предупредить, когда останется меньше<div class="sub">Сообщение придёт в Telegram, повтор раз в сутки. Отдельно — когда деньги закончатся.</div></div>
       <span class="hrow" style="gap:6px"><input type="number" id="sBalLow" min="0" max="1000000" step="50" style="width:96px"> ₽</span></div>
     <div class="muted" style="font-size:12.5px;margin-top:8px">Показывается только владельцу. Баланс берётся из кабинета gptunnel.ru тем же ключом, что и модели; обновляется раз в час.</div></div>
-  <div class="card" id="sSizeCard" style="margin-top:14px;display:none"><h3>🗄 Место: база и копии</h3>
+  <div class="card demo-hide" id="sSizeCard" style="margin-top:14px;display:none"><h3>🗄 Место: база и копии</h3>
     <div id="sSizeBody"><div class="skel" style="height:90px"></div></div>
     <div style="margin-top:10px"><button class="btn sm" id="sShrink">🗜 Сжать старые фото</button> <span class="muted" id="sShrinkRes" style="font-size:13px"></span></div>
     <div class="muted" style="font-size:12.5px;margin-top:8px">Показывается только владельцу. Предупреждения в Telegram приходят при 70% и 90% (тема «Заполняются база или копии»). Новые фото сжимаются при загрузке сами.</div></div>
   <div class="card" style="margin-top:14px"><h3>👨‍👩‍👧 Разделы: личные и общие <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px" id="sSecNote"></div>
     <div class="grid g2" style="gap:0 24px" id="sSections"></div></div>
-  <div class="card" style="margin-top:14px"><h3>🔌 Интеграции <span class="saved" data-saved>✓ Сохранено</span></h3>
+  <div class="card demo-hide" style="margin-top:14px"><h3>🔌 Интеграции <span class="saved" data-saved>✓ Сохранено</span></h3>
     <div class="muted" style="font-size:13px;margin-top:-6px">Что подключено у вас. Ключи и пароли сервисов здесь не вводятся и не показываются.</div>
     <div class="grid g2" style="gap:0 24px" id="sInt"></div></div>
-  <div class="card" style="margin-top:14px"><h3>👤 Аккаунт</h3>
+  <div class="card demo-hide" style="margin-top:14px"><h3>👤 Аккаунт</h3>
     <div class="opt"><div class="grow">Вы вошли как <b id="sMe"></b><div class="sub">Вход действует на этом устройстве. Снова войти — команда /web в боте.</div></div>
       <form method="post" action="/web/logout" id="logoutForm"><button class="btn" type="button" id="logoutBtn">Выйти</button></form></div></div>
-  <div class="card" style="margin-top:14px"><h3>🛡 Версия и резервные копии</h3><div id="sSys"></div></div>
+  <div class="card demo-hide" style="margin-top:14px"><h3>🛡 Версия и резервные копии</h3><div id="sSys"></div></div>
 </section>
 
 <section id="hist">
@@ -1781,11 +1795,59 @@ async function renderSizeSet() {
       renderSizeSet(); } catch (e) { $('#sShrinkRes').textContent = '⚠️ ' + errText(e).slice(0, 120); } $('#sShrink').disabled = false; };
 }
 
+// ---------- демо-кабинет (1.10.7) ----------
+const DEMO = !!window.DEMO;
+if (DEMO) document.documentElement.classList.add('demo');
+let demoLeftSec = 0;
+function demoShowLeft() {
+  const m = Math.max(0, Math.ceil(demoLeftSec / 60));
+  $('#demoLeft').textContent = demoLeftSec > 0 ? 'сброс через ' + m + ' мин без действий' : 'сеанс заканчивается';
+}
+async function demoPoll() {
+  try {
+    const r = await fetch('/demo/api/status', {credentials: 'same-origin'});
+    if (r.status === 410 || r.status === 401) return demoEnded();
+    const st = await r.json();
+    demoLeftSec = st.idle_left; demoShowLeft();
+    if (st.site) $('#demoSite').href = st.site;
+    if (st.seconds_left <= 0) demoEnded();
+  } catch (e) { /* нет сети — следующая попытка через 30 секунд */ }
+}
+function demoEnded() {
+  if ($('#demoEnd')) return;
+  const d = document.createElement('div'); d.id = 'demoEnd'; d.className = 'on';
+  d.innerHTML = '<div class="box"><h3>Демо-сеанс закончился</h3><div class="muted">Все ваши правки сброшены. Можно открыть демо заново: данные снова будут чистыми.</div><a class="btn pri" href="/">Открыть заново</a></div>';
+  document.body.appendChild(d);
+}
+function demoForgetChat() { try { localStorage.removeItem('chat-history-v1'); } catch (e) {} }
+function demoInit() {
+  const other = ME.family.find(m => m.id !== ME.id);
+  const as = $('#demoAs');
+  if (other) { as.textContent = 'Войти как ' + other.name; as.onclick = async () => { as.disabled = true; demoForgetChat();
+    try { const r = await fetch('/demo/as', {method: 'POST', credentials: 'same-origin', headers: {'X-Requested-With': 'panel', 'Content-Type': 'application/json'}, body: JSON.stringify({user: other.id})});
+      if (!r.ok) throw new Error(); location.reload(); } catch (e) { as.disabled = false; toast('Не получилось сменить пользователя'); } }; }
+  else as.hidden = true;
+  $('#demoReset').onclick = async () => { $('#demoReset').disabled = true; demoForgetChat();
+    try { const r = await fetch('/demo/reset', {method: 'POST', credentials: 'same-origin', headers: {'X-Requested-With': 'panel'}});
+      if (r.redirected && r.url.includes('?e=')) location.href = r.url; else location.reload(); }
+    catch (e) { $('#demoReset').disabled = false; toast('Не получилось начать заново, попробуйте ещё раз'); } };
+  const tips = $('#demoTips');
+  tips.style.display = '';
+  tips.innerHTML = '<h3>👋 Вы в демо-кабинете</h3><div class="muted" style="font-size:14px;line-height:1.6">Здесь семья Ветровых, история за полгода. Что попробовать:<br>'
+    + '• внизу в чате напишите <b>«Пятёрочка 1450 продукты»</b> или <b>«съел борщ»</b>, запись появится в «Финансах» и «Питании»;<br>'
+    + '• откройте <b>💰 Финансы</b>, <b>🍽 Питание</b>, <b>🏍 Гараж</b>, <b>🧳 Поездки</b>, там много данных;<br>'
+    + '• добавьте дело, отметьте лекарство принятым, отмените запись во вкладке «История»;<br>'
+    + '• кнопка <b>«Войти как …»</b> вверху показывает, чем отличаются личные и общие разделы.</div>';
+  demoPoll(); setInterval(demoPoll, 30000);
+  setInterval(() => { if (demoLeftSec > 0) { demoLeftSec -= 1; if (demoLeftSec % 15 === 0) demoShowLeft(); } }, 1000);
+}
+
 // ---------- старт ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/web/sw.js', {scope: '/web/'}).catch(() => {});
 (async () => {
   ME = await api('me');
   $('#me').textContent = ME.name;
+  if (DEMO) demoInit();
   applyUi(ME.ui || {}, false); applyModes();
   $$('.who').forEach(s => s.innerHTML = ME.family.map(m => `<option value="${m.id}" ${m.id === ME.id ? 'selected' : ''}>${esc(m.name)}</option>`).join(''));
   $('#hWho').innerHTML = '<option value="">Вся семья</option>' + ME.family.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');

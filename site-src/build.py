@@ -11,8 +11,9 @@ import sys, shutil, pathlib, html
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = pathlib.Path(sys.argv[1]).resolve()
 REPO = '--repo' in sys.argv
-VERSION = '1.10.6'
+VERSION = '1.10.7'
 PANEL = 'https://assistant.saidov.ru/web/'
+DEMO = 'https://demo.assistant.saidov.ru/'
 
 # ---------- фотографии (файл, подпись для скринридера) ----------
 PH = {
@@ -104,7 +105,7 @@ def header(cur):
   <a class="brand" href="index.html"><span class="mark">СА</span><span><b>Семейный ассистент</b><small>версия {VERSION}</small></span></a>
   <nav class="main" aria-label="Разделы сайта">{''.join(items)}</nav>
   <div class="r"><div class="theme" role="group" aria-label="Тема оформления"><button data-t="system" title="Как в системе" aria-label="Как в системе">🖥</button><button data-t="light" title="Светлая" aria-label="Светлая">☀️</button><button data-t="dark" title="Тёмная" aria-label="Тёмная">🌙</button></div>
-  <a class="btn pri" href="{PANEL}">Панель</a><button class="burger" type="button" aria-label="Меню" aria-expanded="false">☰</button></div>
+  <a class="btn demo" href="{DEMO}">🧪 Демо</a><a class="btn pri" href="{PANEL}">Панель</a><button class="burger" type="button" aria-label="Меню" aria-expanded="false">☰</button></div>
 </div></header>'''
 
 
@@ -115,7 +116,7 @@ def footer():
   <div><a class="brand" href="index.html"><span class="mark">СА</span><span><b>Семейный ассистент</b><small>версия {VERSION}</small></span></a>
   <p style="margin-top:10px;color:var(--muted)">Личный проект для семьи. Живёт на собственном сервере.</p></div>
   {col('Возможности', FEAT)}{col('Проект', ['how', 'privacy', 'changelog', 'roadmap'])}{col('Ещё', ['examples', 'screens', 'app', 'faq'])}
-  <div class="fine"><span>Семейный ассистент · личный проект · 2026</span><span><a href="{PANEL}">Веб-панель</a> · вход по ссылке из бота <code>/web</code></span></div>
+  <div class="fine"><span>Семейный ассистент · личный проект · 2026</span><span><a href="{DEMO}">Демо-кабинет</a> · <a href="{PANEL}">Веб-панель</a> · вход по ссылке из бота <code>/web</code></span></div>
 </div></footer>'''
 
 
@@ -185,7 +186,7 @@ def pager(cur):
 
 def cta(photo_key, title='Попробовать ассистента', text='Панель открывается по одноразовой ссылке из бота, а на телефон или компьютер ставится ярлыком — без магазинов приложений.'):
     return f'''<div class="cta"><div class="tx"><h2>{title}</h2><p class="text">{text}</p>
-<div class="row"><a class="btn pri" href="{PANEL}">Войти в панель →</a><a class="btn" href="app.html">Установить как приложение</a></div></div>
+<div class="row"><a class="btn pri" href="{PANEL}">Войти в панель →</a><a class="btn" href="{DEMO}">🧪 Попробовать демо</a><a class="btn" href="app.html">Установить как приложение</a></div></div>
 {ph(photo_key, 'wide')}</div>'''
 
 
@@ -210,7 +211,7 @@ hero = f'''<div class="hero">
     <span class="kicker">Личный проект · для всей семьи</span>
     <h1>Пишете как человеку. <em>Ассистент</em> ведёт учёт.</h1>
     <p class="lead">Траты, еда, дела, лекарства, счётчики, гараж, поездки и долги — одной фразой в Telegram, голосом, через Алису или в веб-панели. Без форм, таблиц и выбора категорий.</p>
-    <div class="row"><a class="btn pri" href="examples.html">Посмотреть примеры</a><a class="btn" href="features.html">Что умеет</a></div>
+    <div class="row"><a class="btn pri" href="{DEMO}">🧪 Попробовать демо</a><a class="btn" href="examples.html">Посмотреть примеры</a><a class="btn" href="features.html">Что умеет</a></div>
     <div class="facts" aria-label="Проект в цифрах">
       <div class="fact"><b>13</b><span>разделов хозяйства</span></div>
       <div class="fact"><b>5</b><span>способов написать</span></div>
@@ -422,6 +423,7 @@ PAGES_HTML['app'] = (
     section('На экране', 'Как это выглядит на телефоне', '<div id="sh"></div>', cls='tight') + cta('b14'), "renderShots('#sh',['home-dark-phone','card-barcode-phone','chat-phone'],true);", True)
 
 faqs = [
+    ('Можно ли попробовать без установки?', 'Да. Откройте демо-кабинет: это настоящая панель с вымышленной семьёй и историей за полгода. Меняйте что угодно, ваши правки видны только вам и через 20 минут без действий сбрасываются. ИИ-чат в демо работает, но с лимитом сообщений.'),
     ('Можно подключить нашу семью?', 'Пока ассистент работает для одной семьи. В версии 2.0 появятся два варианта: «коробка» — установка на свой сервер одной командой, и общий сервис по приглашению для знакомых.'),
     ('Сколько это стоит?', 'Сервер — обычный недорогой VPS. Погода и бэкап в Яндекс в пределах 1 ГБ бесплатны. Платные только запросы к ИИ: для семьи это небольшие деньги в месяц.'),
     ('Что будет, если ИИ не понял фразу?', 'Ассистент переспросит или предложит кнопки выбора. Неверную запись можно поправить кнопкой под ответом или отменить фразой «отмени последнюю трату».'),

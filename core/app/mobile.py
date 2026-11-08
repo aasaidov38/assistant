@@ -16,10 +16,10 @@ import typing
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import brain, users, web
+from . import brain, demo, users, web
 from .schemas import Action, Inbound
 
 log = logging.getLogger(__name__)
@@ -64,6 +64,8 @@ def _reply(r) -> dict:
 async def chat_page(request: Request):
     if not await web._session_user(request):
         return RedirectResponse("/web/", status_code=303)   # там объяснение, как войти
+    if demo.on():
+        return HTMLResponse(demo.inject_flag(CHAT_HTML.read_text(encoding="utf-8")), headers={"Cache-Control": "no-store"})
     return FileResponse(CHAT_HTML, media_type="text/html",
                         headers={"Cache-Control": "no-cache"})
 
@@ -81,6 +83,10 @@ class SendIn(BaseModel):
 @router.post("/web/api/chat/send")
 async def chat_send(body: SendIn, request: Request, user: users.User = Depends(web.current_user)):
     _guard(request)
+    if demo.on():                               # демо: лимиты сообщений, запрет файлов и служебных команд
+        stub = demo.chat_precheck(body.text, bool(body.file_b64))
+        if stub:
+            return stub
     payload: dict = {"channel": "telegram", "external_user_id": await _telegram_id(user),
                      "text": (body.text or "")[:4000]}
 

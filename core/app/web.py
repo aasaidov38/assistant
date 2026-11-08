@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import analytics, balance, budgets, db, envdata, finance, habits, market, morning, notify, nutrition, prefs, scope, shopping, tasks, ticktick, undo, users
+from . import analytics, balance, budgets, db, demo, envdata, finance, habits, market, morning, notify, nutrition, prefs, scope, shopping, tasks, ticktick, undo, users
 from .config import get_settings
 from .schemas import Button, Reply
 from .util import esc, today
@@ -228,8 +228,10 @@ async def web_root():
 async def index(request: Request):
     if not await _session_user(request):
         return _page("Семейный ассистент", NEED_LOGIN, 401)
-    return HTMLResponse(INDEX.read_text(encoding="utf-8"),
-                        headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer"})
+    html = INDEX.read_text(encoding="utf-8")
+    if demo.on():
+        html = demo.inject_flag(html)           # демо-кабинет: плашка, таймер, сброс
+    return HTMLResponse(html, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer"})
 
 
 # ---------- Данные для панели ----------
@@ -254,7 +256,8 @@ async def me(user: users.User = Depends(current_user)):
     return {"id": user.id, "name": user.name, "family": [{"id": m.id, "name": m.name} for m in members],
             "currency": get_settings().currency, "owner": members[0].id == user.id if members else False,
             "modes": await scope.modes(user.family_id),
-            "ui": {"theme": s["theme"], "animations": s["animations"], "hidden_tabs": s["hidden_tabs"]}}
+            "ui": {"theme": s["theme"], "animations": s["animations"], "hidden_tabs": s["hidden_tabs"]},
+            **({"demo": True} if demo.on() else {})}
 
 
 @router.get("/web/api/finance")

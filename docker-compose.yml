@@ -9,6 +9,7 @@
 # Запуск:     docker compose up -d --build
 # Логи:       docker compose logs -f core telegram
 # Остановка:  docker compose down        (данные сохраняются)
+# Демо-кабинет для сайта (1.10.7): COMPOSE_PROFILES=demo в .env, см. docs/DEMO_CLAUDE_CODE.md
 
 name: assistant
 
@@ -89,11 +90,69 @@ services:
     mem_limit: 128m
     networks: [internal]
 
+  # ---------- Демо-кабинет для сайта (1.10.7). Запускается только при COMPOSE_PROFILES=demo в .env ----------
+  # Своя база и свой экземпляр ядра: реальных данных семьи, ключей Telegram, TickTick и Алисы здесь нет.
+  # Подробности и шаги установки: docs/DEMO_CLAUDE_CODE.md
+  demo-db:
+    <<: *common
+    profiles: ["demo"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: demo
+      POSTGRES_USER: assistant
+      POSTGRES_PASSWORD: ${DEMO_DB_PASSWORD:-${POSTGRES_PASSWORD:?Заполните POSTGRES_PASSWORD в .env}}
+      TZ: Europe/Moscow
+    # fsync выключен: данные демо одноразовые (пересобираются раз в сутки), зато копии баз посетителей создаются быстрее
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=60", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    volumes:
+      - demo-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assistant -d demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    networks: [demo_net]
+
+  demo:
+    <<: *common
+    profiles: ["demo"]
+    build: ./core
+    # env_file не подключаем: демо не должно видеть ни Telegram-токен, ни ключи TickTick и Алисы из основного .env
+    environment:
+      DEMO_MODE: "true"
+      DATABASE_URL: postgresql://assistant:${DEMO_DB_PASSWORD:-${POSTGRES_PASSWORD}}@demo-db:5432/demo
+      CORE_API_KEY: demo-api-closed-by-middleware      # адреса /v1/* в демо закрыты, ключ не используется
+      TZ: Europe/Moscow
+      FAMILY_NAME: Семья Ветровых
+      WEATHER_LAT: "55.7558"
+      WEATHER_LON: "37.6173"
+      WEATHER_PLACE: Москва
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-haiku-5-5}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      LLM_API_KEY: ${DEMO_LLM_API_KEY:-}               # отдельный ключ с лимитом расходов; пусто = ИИ в демо выключен
+      DEMO_SITE_URL: ${DEMO_SITE_URL:-https://assistant.saidov.ru}
+      DEMO_MAX_SESSIONS: ${DEMO_MAX_SESSIONS:-8}
+      DEMO_AI_DAILY: ${DEMO_AI_DAILY:-300}
+    depends_on:
+      demo-db: { condition: service_healthy }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 300m
+    networks:
+      demo_net:
+      shared:
+        aliases: [assistant-demo]   # так демо видит Caddy: http://assistant-demo:8000
+
 volumes:
   pgdata:
+  demo-pgdata:
 
 networks:
   internal:
+  demo_net:
   # Общая сеть с n8n и Caddy. Создаётся один раз: docker network create assistant_shared
   shared:
     name: assistant_shared

@@ -67,6 +67,19 @@ class Settings(BaseSettings):
     # n8n: сюда ядро отправляет события (новая трата, новая задача и т.п.)
     n8n_webhook_url: str = ""
 
+    # Демо-кабинет (1.10.7): отдельный экземпляр ядра для сайта, у каждого посетителя своя копия вымышленных данных.
+    # В обычной установке не нужны. Включается только в сервисе demo (docker-compose.yml, профиль demo).
+    demo_mode: bool = False
+    demo_max_sessions: int = 8          # сколько демо открыто одновременно
+    demo_idle_min: int = 20             # минут без действий, после чего копия удаляется
+    demo_max_min: int = 60              # предельная длительность одного сеанса
+    demo_ai_messages: int = 10          # сообщений ИИ-чату за сеанс
+    demo_ai_calls: int = 30             # всех обращений к ИИ за сеанс (чат, диетолог, вопросы, справка к лекарству)
+    demo_ai_daily: int = 300            # всех обращений к ИИ в сутки по всему демо
+    demo_new_per_hour: int = 10         # новых сеансов в час с одного адреса
+    demo_history_days: int = 183        # глубина вымышленной истории
+    demo_site_url: str = "https://assistant.saidov.ru"   # куда ведёт ссылка «на сайт проекта» из демо
+
     @property
     def zone(self) -> ZoneInfo:
         return ZoneInfo(self.tz)

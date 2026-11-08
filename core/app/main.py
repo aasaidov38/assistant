@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from . import alice, analytics, brain, mobile, release, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
+from . import alice, analytics, brain, demo, mobile, release, site, budgets, db, digest, finance, jobs, notify, shopping, ticktick, users, web, web_life
 from .config import get_settings
 from .schemas import Action, Inbound, Reply
 from .util import esc, today
@@ -27,6 +27,18 @@ log = logging.getLogger("core")
 async def lifespan(app: FastAPI):
     s = get_settings()
     await db.connect(s.database_url)
+    if demo.on():                                # демо-кабинет (1.10.7): без миграций управляющей базы, Telegram и фоновых задач
+        demo.install()
+        await demo.startup()
+        stop = asyncio.Event()
+        worker = asyncio.create_task(demo.loop(stop))
+        log.info("Ядро %s запущено в режиме ДЕМО", release.VERSION)
+        yield
+        stop.set()
+        await worker
+        await demo.shutdown()
+        await db.close()
+        return
     await db.migrate()
     await users.sync_allowed_users()
     try:
@@ -42,12 +54,18 @@ async def lifespan(app: FastAPI):
     await db.close()
 
 
-app = FastAPI(title="Личный ассистент: ядро", version=release.VERSION, lifespan=lifespan)
+_demo = demo.on()
+app = FastAPI(title="Личный ассистент: ядро", version=release.VERSION, lifespan=lifespan,
+              **({"docs_url": None, "redoc_url": None, "openapi_url": None} if _demo else {}))
+if _demo:
+    app.add_middleware(demo.DemoMiddleware)   # база посетителя на каждый запрос, закрытые пути, лимиты
+    app.include_router(demo.router)           # стартовая страница и кнопки демо вместо сайта проекта
 app.include_router(web.router)      # веб-панель /web (вход через бота)
 app.include_router(web_life.router) # панель: платежи, выписки, гараж, дом, лекарства (1.5)
 app.include_router(mobile.router)   # чат /web/chat для панели и Android-приложения (1.7.1)
 app.include_router(alice.router)    # Яндекс Алиса /alice/<секрет>
-app.include_router(site.router)     # сайт проекта: / и /site/* (1.7.2)
+if not _demo:
+    app.include_router(site.router) # сайт проекта: / и /site/* (1.7.2)
 
 
 def api_key(x_api_key: str = Header(default="")) -> None:
