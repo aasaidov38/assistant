@@ -245,7 +245,7 @@ async def main():
     check("VERSION = '1.10.7'" in site and "demo.assistant.saidov.ru" in site and "1.10.7" in (root / "site-src" / "data.js").read_text(encoding="utf-8"), "сайт: версия, ссылка на демо, история")
     pages = "".join(p.read_text(encoding="utf-8") for p in (APP / "static" / "site").glob("*.html"))
     check("Попробовать демо" in pages and "Иркутск" not in pages and "из 4 человек" not in pages, "собранный сайт: кнопки демо, нет запрещённых слов")
-    check("## 41. Демо-кабинет" in (root / "README.md").read_text(encoding="utf-8"), "README: раздел про демо")
+    check("## 41. Демо-кабинет" in (root / "docs" / "INSTALL.md").read_text(encoding="utf-8"), "INSTALL.md: раздел про демо")
 
 
 asyncio.run(main())

@@ -219,4 +219,4 @@ POST /v1/inbound
 Отдельные контейнеры `demo` (то же ядро с `DEMO_MODE=true`) и `demo-db` (своя PostgreSQL) в профиле `demo`; сеть `demo_net` + `shared` (alias `assistant-demo` для Caddy).
 Основная база и `.env` демо недоступны. Схема работы: заготовка `demo_t_*` (миграции + `demo_data.seed`, раз в сутки) → на посетителя `CREATE DATABASE demo_s_* TEMPLATE demo_t_*`
 → `DemoMiddleware` выбирает пул по cookie `demo_sid` (contextvar `db._override`) → через 20 минут простоя база удаляется. Внешние пути: `/`, `/demo/*`, `/web/*` (Caddy + allowlist в прослойке).
-ИИ — по отдельному ключу, лимиты в `demo.ai_guard` и `demo.chat_precheck`. Подробнее: README раздел 41, `docs/DEMO_CLAUDE_CODE.md`.
+ИИ — по отдельному ключу, лимиты в `demo.ai_guard` и `demo.chat_precheck`. Подробнее: docs/INSTALL.md раздел 41, `docs/DEMO_CLAUDE_CODE.md`.

@@ -1185,7 +1185,7 @@ async function loadTasks() {
   // TickTick
   const mine = (tt.members || []).find(m => m.id === ME.id) || {};
   const ago = mine.last_sync ? Math.round((Date.now() / 1000 - mine.last_sync) / 60) : null;
-  $('#ttStatus').innerHTML = !tt.configured ? '<div class="grow">📲 TickTick не настроен на сервере (README, раздел 9)</div>'
+  $('#ttStatus').innerHTML = !tt.configured ? '<div class="grow">📲 TickTick не настроен на сервере (docs/INSTALL.md, раздел 9)</div>'
     : `<div class="grow"><b>📲 TickTick</b> ${(tt.members || []).map(m => `<span class="badge ${m.connected ? 'ttb' : ''}">${esc(m.name)}: ${m.connected ? 'подключён' : 'нет'}</span>`).join(' ')}
        <div class="sub muted">${mine.connected ? (ago === null ? 'Синхронизации ещё не было' : 'Синхронизировано ' + (ago < 1 ? 'только что' : ago + ' мин назад')) + ' · обновляется каждые 5 минут' : 'Подключить: команда /ticktick в боте'}${mine.last_error ? ' · ⚠️ ' + esc(mine.last_error) : ''}</div></div>
        ${mine.connected ? '<button class="btn" id="ttSync">🔄 Синхронизировать</button>' : ''}`;
@@ -1562,7 +1562,7 @@ async function loadInt() {
     : 'Chrome или Edge на компьютере: значок установки в адресной строке или меню ⋮ → «Установить». Android: меню ⋮ → «Добавить на главный экран»';
   h += item('📲 Приложение на рабочем столе', how, st(STANDALONE, STANDALONE ? 'установлено' : ''),
     INSTALL && !STANDALONE ? '<div style="margin-top:6px"><button class="btn sm pri" id="iInst">📲 Создать ярлык</button></div>' : '');
-  if (!t.configured) h += item('✅ TickTick', 'Владелец ещё не включил TickTick на сервере (README, раздел «TickTick»)', st(false, 'не настроен'));
+  if (!t.configured) h += item('✅ TickTick', 'Владелец ещё не включил TickTick на сервере (docs/INSTALL.md, раздел «TickTick»)', st(false, 'не настроен'));
   else h += item('✅ TickTick', t.connected ? `Задачи двусторонне. Синхронизация: ${t.sync_min == null ? 'ещё не было' : t.sync_min + ' мин назад'}${t.days != null ? ` · доступ ещё ${t.days} дн.` : ''}`
       + (t.last_error ? `<br><span style="color:var(--bad)">⚠️ ${esc(t.last_error)}</span>` : '') : (t.expired ? 'Доступ истёк — подключите заново' : 'Задачи из ассистента появятся в TickTick и обратно'),
     st(t.connected, t.connected ? 'подключён' : 'нет'),
@@ -1570,7 +1570,7 @@ async function loadInt() {
       + (t.connected ? `<label style="display:flex;gap:6px;align-items:center;font-size:13px;flex-basis:100%;order:3"><input type="checkbox" style="width:auto;flex:none" id="iTTn" ${t.notify ? 'checked' : ''}> сообщать о новых задачах из TickTick</label>
         <button class="btn sm" id="iTTx">Отключить</button>` : '') + '</div>');
   h += item('🎙 Яндекс Алиса', I.alice.configured ? (I.alice.linked ? '«Алиса, попроси Семейного помощника записать трату 500 на такси»' : 'Голосом через колонку или телефон')
-      : 'Владелец ещё не включил навык на сервере (README, раздел «Алиса»)', st(I.alice.linked, I.alice.linked ? 'привязана' : 'нет'),
+      : 'Владелец ещё не включил навык на сервере (docs/INSTALL.md, раздел «Алиса»)', st(I.alice.linked, I.alice.linked ? 'привязана' : 'нет'),
     I.alice.configured ? `<div style="margin-top:6px"><button class="btn sm" id="iAl">🔢 ${I.alice.linked ? 'Привязать ещё устройство' : 'Получить код привязки'}</button> <span id="iAlCode" class="muted" style="font-size:13px"></span></div>` : '');
   const pushTxt = {on: 'Напоминания приходят в этот браузер, даже когда панель закрыта', off: 'Напоминания приходят в этот браузер, даже когда панель закрыта',
     denied: 'Уведомления запрещены в настройках браузера для этого сайта — разрешите их там', unsupported: IOS && !STANDALONE

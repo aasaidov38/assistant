@@ -64,4 +64,4 @@ Android-приложение — отдельный репозиторий `aasa
 `docs/RELEASING.md`: VERSION + `release.VERSION` + раздел в `core/CHANGELOG.md` → тесты → `git push origin main` →
 `git push origin main:stable` → проверить GitHub Actions (`gh run list -R aasaidov38/assistant --limit 2`).
 Пуш тегов из песочницы не работает (прокси) — версии только через ветку `stable`.
-В конце версии один раз обновить `assistant/project-state.md` в проекте и README (новый раздел).
+В конце версии один раз обновить `assistant/project-state.md` в проекте и docs/INSTALL.md (новый раздел).

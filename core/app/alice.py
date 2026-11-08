@@ -46,7 +46,7 @@ def _answer(text: str, end: bool = False) -> dict:
 async def link_code(user: users.User) -> Reply:
     s = get_settings()
     if not s.alice_secret or not s.public_url:
-        return Reply(text="🎙 Алиса ещё не настроена: нужны PUBLIC_URL и ALICE_SECRET в .env (README, раздел «Алиса»).")
+        return Reply(text="🎙 Алиса ещё не настроена: нужны PUBLIC_URL и ALICE_SECRET в .env (docs/INSTALL.md, раздел «Алиса»).")
     code = f"{secrets.randbelow(900000) + 100000}"
     await db.get_pool().execute(
         "INSERT INTO link_codes (code, user_id, channel, expires_at) VALUES ($1,$2,'alice',now()+interval '15 minutes')"

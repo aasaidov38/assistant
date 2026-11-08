@@ -310,7 +310,7 @@ async def main():
     root = APP.parent.parent
     check(release.newer(release.VERSION, "1.10.5") and (root / "VERSION").read_text().strip() == release.VERSION, "версия не ниже 1.10.6, VERSION и release.py совпадают")
     check(any("инструкция" in x.lower() for x in release.notes("1.10.6")), "в CHANGELOG есть раздел 1.10.6", release.notes("1.10.6"))
-    check("## 40." in (root / "README.md").read_text(encoding="utf-8"), "в README раздел 40")
+    check("## 40." in (root / "docs" / "INSTALL.md").read_text(encoding="utf-8"), "в docs/INSTALL.md раздел 40")
     check(not druginfo.__doc__ or "дозы" in druginfo.__doc__.lower(), "в модуле записано правило «дозы не называем»")
     check("НЕ указывай дозы" in druginfo.SYSTEM and "found\": false" in druginfo.SYSTEM, "в запросе к ИИ запрет доз и право ответить «не знаю»")
     check(await druginfo.official("нурофен") is None, "официальный источник пока не подключён (место под ГРЛС)")

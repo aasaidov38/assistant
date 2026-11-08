@@ -45,7 +45,7 @@ async def _login_url(user: users.User) -> str:
 async def install_reply(user: users.User) -> Reply:
     """/app — как поставить ассистента на телефон ярлыком (версия 1.10.3)."""
     if not get_settings().public_url:
-        return Reply(text="📲 Для приложения нужен публичный адрес: заполните PUBLIC_URL в .env (README, раздел «Публичный адрес через Caddy»).")
+        return Reply(text="📲 Для приложения нужен публичный адрес: заполните PUBLIC_URL в .env (docs/INSTALL.md, раздел «Публичный адрес через Caddy»).")
     url = await _login_url(user)
     return Reply(text=(
         "📲 <b>Ассистент как приложение</b>\n\n"
@@ -64,7 +64,7 @@ async def login_link(user: users.User) -> Reply:
     s = get_settings()
     if not s.public_url:
         return Reply(text="🌐 Для веб-панели нужен публичный адрес: заполните PUBLIC_URL в .env "
-                          "(README, раздел «Публичный адрес через Caddy»).")
+                          "(docs/INSTALL.md, раздел «Публичный адрес через Caddy»).")
     url = await _login_url(user)
     return Reply(text="🌐 <b>Вход в веб-панель</b>\n\nНажмите «Открыть панель», затем «Войти».\n"
                       "Кнопка одноразовая и действует 10 минут. Никому её не пересылайте.\n"

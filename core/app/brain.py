@@ -530,7 +530,7 @@ async def ticktick_connect(user: users.User) -> Reply:
     s = get_settings()
     if not ticktick.configured():
         return Reply(text="TickTick ещё не настроен: заполните TICKTICK_CLIENT_ID и TICKTICK_CLIENT_SECRET в .env "
-                          "(инструкция в README, раздел «TickTick»).")
+                          "(инструкция в docs/INSTALL.md, раздел «TickTick»).")
     link = ticktick.auth_link(user.id)
     info = await ticktick.token_info(user.id)
     status = ""
