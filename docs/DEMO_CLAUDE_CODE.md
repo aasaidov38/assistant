@@ -51,7 +51,7 @@
 Задача: включить на сервере демо-кабинет моего семейного ассистента (версия 1.10.7) по адресу demo.assistant.saidov.ru.
 
 Сервер: ssh-алиас `assistant` (root, Ubuntu 24.04). Ассистент лежит в /opt/assistant (Docker Compose), рядом работают
-n8n и Caddy в /opt/n8n. Версия 1.10.7 уже установлена (git-ветка stable). Подробности: docs/DEMO_CLAUDE_CODE.md в репозитории.
+n8n в /opt/n8n, Caddy в /opt/caddy (там же Caddyfile). Версия 1.10.7 уже установлена (git-ветка stable). Подробности: docs/DEMO_CLAUDE_CODE.md в репозитории.
 
 Правила:
 - Не выводи на экран содержимое /opt/assistant/.env и любые ключи, токены, пароли. Проверять можно только наличие строк
@@ -71,7 +71,7 @@ n8n и Caddy в /opt/n8n. Версия 1.10.7 уже установлена (git
 
 2. Копии перед изменениями:
    ssh assistant "set -e; D=\$(date +%F_%H%M); cp /opt/assistant/.env /root/assistant.env.bak-\$D;
-     cp /opt/n8n/Caddyfile /root/Caddyfile.bak-\$D; ls -l /root/*.bak-\$D"
+     cp /opt/caddy/Caddyfile /root/Caddyfile.bak-\$D; ls -l /root/*.bak-\$D"
 
 3. Попроси меня вписать ключ вручную. Покажи мне команду и жди ответа «готово»:
      ssh -t assistant "nano /opt/assistant/.env"
@@ -89,7 +89,7 @@ n8n и Caddy в /opt/n8n. Версия 1.10.7 уже установлена (git
      docker compose logs --tail 40 demo | grep -E 'ДЕМО|Заготовка демо|Traceback|Error'"
    Ожидается «Ядро … запущено в режиме ДЕМО» и «Заготовка демо … собрана», без Traceback.
 
-5. Добавь адрес в Caddy (/opt/n8n/Caddyfile). Проверь, нет ли блока: ssh assistant "grep -c 'demo.assistant.saidov.ru' /opt/n8n/Caddyfile"
+5. Добавь адрес в Caddy (/opt/caddy/Caddyfile). Проверь, нет ли блока: ssh assistant "grep -c 'demo.assistant.saidov.ru' /opt/caddy/Caddyfile"
    (если 1 и больше — пропусти). Иначе допиши в конец файла:
 
 demo.assistant.saidov.ru {
@@ -104,7 +104,7 @@ demo.assistant.saidov.ru {
 }
 
    Затем:
-   ssh assistant "cd /opt/n8n && docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile &&
+   ssh assistant "cd /opt/caddy && docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile &&
      docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
    Если validate ругается — верни копию Caddyfile из /root/Caddyfile.bak-… и сообщи мне.
 
