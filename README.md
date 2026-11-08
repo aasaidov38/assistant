@@ -1089,7 +1089,7 @@ crontab -l
 
 ## 35. Исходники в GitHub и выпуск версий (1.8)
 
-Код лежит в закрытом репозитории GitHub `aasaidov38/assistant`:
+Код лежит в публичном репозитории GitHub `aasaidov38/assistant` (открыт 08.11.2026; секреты в него не попадают — `.env`, `backups/` и `state/` в `.gitignore`):
 - ветка **main** — разработка;
 - ветка **stable** — то, что предлагается обновить на сервере. Номер версии — в файле `VERSION` (и в `core/app/release.py`), «что нового» — в `core/CHANGELOG.md`.
 
