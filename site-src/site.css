@@ -280,3 +280,8 @@ footer .fine{grid-column:1/-1;padding-top:14px;border-top:1px solid var(--line);
 
 /* 1.10.7: кнопка «Демо» в шапке прячется на узких экранах (на телефоне есть в главной и внизу страницы) */
 @media (max-width:900px){.top .r .btn.demo{display:none}}
+
+/* блок без фото (кадра нет): текст на всю ширину */
+.split.solo{grid-template-columns:1fr}
+.split.solo .tx{max-width:760px}
+.split+.split{margin-top:34px}

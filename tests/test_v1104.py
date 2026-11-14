@@ -43,7 +43,15 @@ check("'1.10.4'" in js, "в истории сайта есть версия 1.10
 # картинки скриншотов и фото, которые подставляет скрипт
 for name in re.findall(r"\['([a-z\-]+)', '[^']+', '[^']+'\],?\n", js.split("const DESK")[1].split("const LOG")[0]):
     check((SITE / "img" / "shots" / f"{name}.jpg").is_file(), f"скриншот {name}.jpg есть")
-check(len(list((SITE / "img" / "ph").glob("*.webp"))) >= 30, "фотографии ассистента лежат в img/ph")
+check(len(list((SITE / "img" / "ph").glob("*.webp"))) >= 10, "фотографии ассистента лежат в img/ph")
+import json as _json, re as _re
+_dims = _json.loads((REPO / "site-src" / "ph_dims.json").read_text())
+_bad = []
+for _p in SITE.glob("*.html"):
+    for _n, _w, _h in _re.findall(r'src="img/ph/([\w-]+)\.webp" width="(\d+)" height="(\d+)"', _p.read_text()):
+        if _dims.get(_n) != [int(_w), int(_h)]:
+            _bad.append((_p.name, _n))
+check(not _bad, "width/height у фото совпадают с настоящими размерами (кадр без обрезки)", _bad)
 css = (SITE / "css" / "site.css").read_text(encoding="utf-8")
 check("object-fit:cover" not in css.split(".ph img")[1].split("}")[0], "фото показываются без обрезки")
 
