@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "python -m compileall -q core adapters tests"
+  ],
+  "timeoutSeconds": 600
+}
