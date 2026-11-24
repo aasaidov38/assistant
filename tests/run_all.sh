@@ -3,6 +3,9 @@
 #   --fresh — пересоздать тестовую базу и применить миграции заново.
 set -uo pipefail
 cd "$(dirname "$0")"
+# Сессия psql должна считать «сегодня» в том же поясе, что и тесты (TZ=Asia/Irkutsk ниже),
+# иначе проверки дат (test_v1107) зависят от часа суток: с 16:00 UTC в Иркутске уже завтра.
+export PGTZ=${PGTZ:-Asia/Irkutsk}
 [ "${1:-}" = "--fresh" ] && bash setup_db.sh
 python3 -m py_compile ../core/app/*.py ../adapters/telegram/*.py || exit 1
 FAIL=0
