@@ -9,3 +9,6 @@ state/
 __pycache__/
 *.pyc
 .venv/
+
+# Изолированные рабочие копии (git worktree для параллельных задач)
+.worktrees/
